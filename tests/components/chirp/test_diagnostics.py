@@ -54,3 +54,42 @@ async def test_diagnostics_redacts_wwn_and_serial_number_keys(
     disk = result["status"]["disks"][0]
     assert disk["wwn"] == REDACTED
     assert disk["serial_number"] == REDACTED
+
+
+async def test_diagnostics_host_metrics(hass, entry, aioclient_mock):
+    """Host metrics stay readable; MAC-derived interface names are masked."""
+    payload = load_status()
+    interfaces = payload["network"]["interfaces"]
+    interfaces.append(
+        {**interfaces[1], "id": "enx001122aabbcc", "name": "enx001122aabbcc"}
+    )
+    interfaces.append(
+        {**interfaces[1], "id": "wlx_mac", "name": "wl-00:11:22:aa:bb:cc"}
+    )
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    status = result["status"]
+    assert status["memory"]["usedPercent"] == 37.6
+    assert status["memory"]["scope"] == "host"
+    assert status["load"]["load1"] == 0.84
+    assert status["power"]["packageWatts"] == 18.4
+    assert status["fans"][0]["rpm"] == 1180
+    assert status["voltages"][1]["volts"] == 3.344
+    names = [iface["name"] for iface in status["network"]["interfaces"]]
+    assert names[:5] == ["bond0", "eno1", "enp3s0", "vmbr0", "vmbr0.100"]
+    assert names[5] == f"enx{REDACTED}"
+    assert names[6] == f"wl-{REDACTED}"
+    assert all(iface["id"] == REDACTED for iface in status["network"]["interfaces"])
+    dump = json.dumps(result)
+    for secret in ("001122aabbcc", "00:11:22:aa:bb:cc"):
+        assert secret not in dump, secret
+
+
+async def test_diagnostics_without_host_metrics(hass, entry, aioclient_mock):
+    aioclient_mock.get(STATUS_URL, json=load_status("status_null_sections.json"))
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["status"]["network"] is None

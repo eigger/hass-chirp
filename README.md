@@ -1,7 +1,7 @@
 <!-- hass-standards:header:start -->
 # Chirp Home Assistant Integration (hass-chirp)
 
-A read-only Home Assistant custom integration that shows Chirp disk SMART health, disk temperatures and CPU temperature.
+A read-only Home Assistant custom integration that shows Chirp disk SMART health, disk and CPU temperatures, and host memory, load, network, power, fan and voltage metrics.
 
 **English** | [한국어](README.ko.md)
 
@@ -18,14 +18,15 @@ A read-only Home Assistant custom integration that shows Chirp disk SMART health
 
 ![Chirp](custom_components/chirp/brand/logo.png)
 
-A **read-only** Home Assistant custom integration for [Chirp](https://github.com/eigger/chirp), a self-hosted monitor for disk SMART health and temperatures. It polls Chirp's `/api/v1/status` endpoint (every 60 seconds by default) and exposes the host's CPU temperature and every disk's temperature, health and SMART counters as entities.
+A **read-only** Home Assistant custom integration for [Chirp](https://github.com/eigger/chirp), a self-hosted monitor for disk SMART health, temperatures and host metrics. It polls Chirp's `/api/v1/status` endpoint (every 60 seconds by default) and exposes the host's CPU temperature, memory, load, power, fans, voltages and network interfaces, and every disk's temperature, health and SMART counters as entities.
 
 ## Features
 
 - One device for the monitored host (CPU temperature, boot time, "any disk problem" and a SMART refresh button) plus one device per disk
 - Per-disk temperature (kept while the disk is in standby), power-on hours, health (`ok` / `warning` / `failing` with reasons; Home Assistant's *unknown* until Chirp has read the disk) and a SMART problem binary sensor
 - Protocol-specific counters: reallocated and pending sectors for SATA, wear, available spare, data written and media errors for SSD/NVMe
-- Disks that appear later are added automatically; disks that vanish become unavailable
+- Host metrics from Chirp servers that report them: memory and swap usage, CPU usage and load, CPU package power, fan speeds and voltages, plus one device per network interface with receive/transmit rates, totals, link state and link speed. Each value carries a `scope` attribute that says whether it is the host's or the Chirp container's own view. Fans that were stopped when first seen start disabled; enable them in the entity settings ([details](docs/user-guide.md#supported-features-and-entities))
+- Disks and network interfaces that appear later are added automatically; ones that vanish become unavailable
 - Last known values ride out brief outages; after 3 failed polls in a row the entities become unavailable until Chirp answers again. A consecutive error counter stays available for diagnosis
 
 ## Requirements
@@ -48,7 +49,15 @@ Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eig
 3. Go to **Settings → Devices & services → Add integration → Chirp**.
 4. Enter the Chirp **host** (IP address or name), **port** (default `80`) and **API key**. Tick *Use HTTPS* only if Chirp is served over HTTPS; untick *Verify SSL certificate* only for a self-signed certificate on a server you trust.
 
-The API key starts with `chp_`. On the Chirp host, show it with `cat /var/lib/chirp/api-key` (inside a Proxmox container: `pct exec <ctid> -- cat /var/lib/chirp/api-key`). [More details](docs/user-guide.md#installation)
+### Getting the API key
+
+1. Open the chirp dashboard (`http://<chirp host>/`). On a fresh install, create the admin account first: whoever opens the dashboard first becomes the admin, so do this right after installing chirp.
+2. Sign in and go to **Settings → API key**.
+3. Click **Copy** (or **Show** to read it), then paste the key into the chirp integration in Home Assistant together with the chirp host and port.
+
+**Regenerate** in the same place creates a new key. The old key stops working immediately, so update the integration afterwards (Home Assistant will ask you to re-authenticate). If the key is set with `CHIRP_API_KEY` on the server, it is shown read-only and must be changed there. On the server you can also print it with `node apps/server/dist/cli.js key show` (Proxmox: `pct exec <CTID> -- node /opt/chirp/current/apps/server/dist/cli.js key show`; Docker: `docker exec chirp node apps/server/dist/cli.js key show`).
+
+[More details](docs/user-guide.md#installation)
 
 ## Usage
 
@@ -64,7 +73,7 @@ Use the actual entity ID created by your installation. The button asks Chirp to 
 
 | Guide | Contents |
 |---|---|
-| [User guide](docs/user-guide.md) | Setup and API key, entities and attributes, health reasons, troubleshooting |
+| [User guide](docs/user-guide.md) | Setup and API key, entities and attributes, host or container scope, health reasons, troubleshooting |
 | [Development and tests](docs/development.md) | Real-HA tests, minimum/current environments, dependencies and commands |
 | [Adopted standards](STANDARDS.md) · [Checklist](ADOPTION_CHECKLIST.md) | Common rules and verification records |
 

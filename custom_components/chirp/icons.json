@@ -38,6 +38,76 @@
       },
       "unsafe_shutdowns": {
         "default": "mdi:power-off"
+      },
+      "data_scope": {
+        "default": "mdi:eye-outline",
+        "state": {
+          "host": "mdi:server",
+          "container": "mdi:package-variant-closed",
+          "mixed": "mdi:eye-settings-outline"
+        }
+      },
+      "memory_used_percent": {
+        "default": "mdi:memory"
+      },
+      "memory_used": {
+        "default": "mdi:memory"
+      },
+      "memory_total": {
+        "default": "mdi:memory"
+      },
+      "swap_used_percent": {
+        "default": "mdi:swap-horizontal"
+      },
+      "cpu_usage_percent": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "load_1m": {
+        "default": "mdi:speedometer"
+      },
+      "load_5m": {
+        "default": "mdi:speedometer"
+      },
+      "load_15m": {
+        "default": "mdi:speedometer"
+      },
+      "fan": {
+        "default": "mdi:fan"
+      },
+      "rx_rate": {
+        "default": "mdi:download-network-outline"
+      },
+      "tx_rate": {
+        "default": "mdi:upload-network-outline"
+      },
+      "rx_total": {
+        "default": "mdi:download"
+      },
+      "tx_total": {
+        "default": "mdi:upload"
+      },
+      "link_speed": {
+        "default": "mdi:speedometer"
+      },
+      "rx_errors": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "tx_errors": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "rx_dropped": {
+        "default": "mdi:close-network-outline"
+      },
+      "tx_dropped": {
+        "default": "mdi:close-network-outline"
+      }
+    },
+    "binary_sensor": {
+      "link": {
+        "default": "mdi:ethernet",
+        "state": {
+          "off": "mdi:ethernet-off"
+        }
       }
     },
     "button": {

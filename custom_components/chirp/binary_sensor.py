@@ -1,4 +1,4 @@
-"""Problem binary sensors for the monitored host and its disks."""
+"""Binary sensors: disk problems and network interface links."""
 
 from __future__ import annotations
 
@@ -16,8 +16,16 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import ChirpConfigEntry
 from .const import HEALTH_FAILING, HEALTH_OK, HEALTH_WARNING
-from .coordinator import ChirpCoordinator
-from .entity import ChirpDiskEntity, ChirpEntity, is_provisional_disk
+from .coordinator import ChirpCoordinator, network_interfaces
+from .entity import (
+    ChirpDiskEntity,
+    ChirpEntity,
+    ChirpInterfaceEntity,
+    disk_unique_id,
+    interface_unique_id,
+    is_provisional_disk,
+    register_forget_device,
+)
 from .sensor import _health_reasons, _health_status
 
 PARALLEL_UPDATES = 0
@@ -72,12 +80,35 @@ DISK_BINARY_SENSORS: tuple[ChirpDiskBinarySensorDescription, ...] = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class ChirpInterfaceBinarySensorDescription(BinarySensorEntityDescription):
+    """Describe a per-network-interface binary sensor."""
+
+    is_on_fn: Callable[[dict[str, Any]], bool | None]
+
+
+def _link_up(interface: dict[str, Any]) -> bool | None:
+    up = interface.get("up")
+    return up if isinstance(up, bool) else None
+
+
+INTERFACE_BINARY_SENSORS: tuple[ChirpInterfaceBinarySensorDescription, ...] = (
+    # Link up (operstate is up)
+    ChirpInterfaceBinarySensorDescription(
+        key="link",
+        translation_key="link",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY,
+        is_on_fn=_link_up,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ChirpConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Create binary sensors now and for disks that appear later."""
+    """Create binary sensors now and for disks and interfaces that appear later."""
     coordinator = entry.runtime_data.coordinator
     known: set[str] = set()
 
@@ -95,7 +126,9 @@ async def async_setup_entry(
             if is_provisional_disk(disk):
                 continue
             for disk_description in DISK_BINARY_SENSORS:
-                unique_id = f"{instance_id}_{disk['id']}_{disk_description.key}"
+                unique_id = disk_unique_id(
+                    instance_id, disk["id"], disk_description.key
+                )
                 if unique_id not in known:
                     known.add(unique_id)
                     new.append(
@@ -103,9 +136,27 @@ async def async_setup_entry(
                             coordinator, entry, disk_description, disk
                         )
                     )
+        for interface in network_interfaces(status):
+            for interface_description in INTERFACE_BINARY_SENSORS:
+                unique_id = interface_unique_id(
+                    instance_id, interface["id"], interface_description.key
+                )
+                if unique_id not in known:
+                    known.add(unique_id)
+                    new.append(
+                        ChirpInterfaceBinarySensor(
+                            coordinator, entry, interface_description, interface
+                        )
+                    )
         if new:
             async_add_entities(new)
 
+    register_forget_device(
+        entry,
+        known,
+        (description.key for description in DISK_BINARY_SENSORS),
+        (description.key for description in INTERFACE_BINARY_SENSORS),
+    )
     _add_new_entities()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
 
@@ -148,3 +199,30 @@ class ChirpDiskBinarySensor(ChirpDiskEntity, BinarySensorEntity):
         if disk is None or attrs_fn is None:
             return None
         return attrs_fn(disk)
+
+
+class ChirpInterfaceBinarySensor(ChirpInterfaceEntity, BinarySensorEntity):
+    """A binary sensor describing one network interface."""
+
+    entity_description: ChirpInterfaceBinarySensorDescription
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True when the interface link is up."""
+        interface = self.interface
+        return (
+            None if interface is None else self.entity_description.is_on_fn(interface)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the scope, the raw operstate and the interface kind."""
+        attrs = super().extra_state_attributes
+        interface = self.interface
+        if attrs is None or interface is None:
+            return attrs
+        return {
+            **attrs,
+            "oper_state": interface.get("operState"),
+            "kind": interface.get("kind"),
+        }

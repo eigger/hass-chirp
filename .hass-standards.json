@@ -20,8 +20,8 @@
   "readme": {
     "title": "Chirp Home Assistant Integration (hass-chirp)",
     "descriptions": {
-      "en": "A read-only Home Assistant custom integration that shows Chirp disk SMART health, disk temperatures and CPU temperature.",
-      "ko": "Chirp 서버의 디스크 SMART 건강 상태·디스크 온도·CPU 온도를 읽기 전용으로 연결하는 Home Assistant 커스텀 통합입니다."
+      "en": "A read-only Home Assistant custom integration that shows Chirp disk SMART health, disk and CPU temperatures, and host memory, load, network, power, fan and voltage metrics.",
+      "ko": "Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스트 메모리·부하·네트워크·전력·팬·전압 지표를 읽기 전용으로 연결하는 Home Assistant 커스텀 통합입니다."
     },
     "issues": true,
     "discussions": true,

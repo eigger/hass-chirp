@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -76,6 +77,72 @@ def disk_device_info(
         serial_number=disk.get("serial"),
         sw_version=disk.get("firmware"),
     )
+    return _via_host(hass, entry, instance_id, info)
+
+
+_INTERFACE_MODELS = {
+    "physical": "Physical interface",
+    "bridge": "Bridge",
+    "bond": "Bond",
+    "vlan": "VLAN",
+    "virtual": "Virtual interface",
+}
+
+
+# Disk devices are ``<instance id>_<disk id>``. Interface devices use a ``:``
+# separator instead, so no disk ID (whatever its characters) can produce the
+# identifier of an interface device or the other way round.
+INTERFACE_DEVICE_INFIX = ":net:"
+
+
+def interface_device_identifier(instance_id: str, interface_id: str) -> str:
+    """Return the device identifier of one network interface."""
+    return f"{instance_id}{INTERFACE_DEVICE_INFIX}{interface_id}"
+
+
+def disk_unique_id(instance_id: str, disk_id: str, key: str) -> str:
+    """Return the unique ID of one disk entity."""
+    return f"{instance_id}_{disk_id}_{key}"
+
+
+def interface_unique_id(instance_id: str, interface_id: str, key: str) -> str:
+    """Return the unique ID of one network interface entity.
+
+    Interface keys (``rx_rate``, ``link`` ...) never end a disk key, so these
+    cannot equal a disk entity's ``<instance id>_<disk id>_<key>``.
+    """
+    return f"{instance_id}_net_{interface_id}_{key}"
+
+
+def interface_device_info(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    status: dict[str, Any],
+    interface: dict[str, Any],
+) -> DeviceInfo:
+    """Build the DeviceInfo of one network interface, attached to the host.
+
+    The name carries the host name so that ``eno1`` of two Chirp hosts does not
+    end up with the same entity IDs.
+    """
+    instance = status["instance"]
+    instance_id = str(instance["id"])
+    hostname = str(instance.get("hostname") or "Chirp")
+    label = interface.get("name") or interface["id"]
+    info = DeviceInfo(
+        identifiers={
+            (DOMAIN, interface_device_identifier(instance_id, interface["id"]))
+        },
+        name=f"{hostname} {label}",
+        model=_INTERFACE_MODELS.get(str(interface.get("kind")), "Network interface"),
+    )
+    return _via_host(hass, entry, instance_id, info)
+
+
+def _via_host(
+    hass: HomeAssistant, entry: ConfigEntry, instance_id: str, info: DeviceInfo
+) -> DeviceInfo:
+    """Attach a child device (disk, network interface) to the host device."""
     if not _USES_VIA_DEVICE_ID:
         info["via_device"] = (DOMAIN, instance_id)  # type: ignore[typeddict-unknown-key]
         return info
@@ -84,6 +151,38 @@ def disk_device_info(
             info["via_device_id"] = device.id  # type: ignore[typeddict-unknown-key]
             break
     return info
+
+
+def register_forget_device(
+    entry: ConfigEntry,
+    known: set[str],
+    disk_keys: Iterable[str],
+    interface_keys: Iterable[str],
+) -> None:
+    """Forget a platform's unique IDs of a disk or interface device on removal.
+
+    Platforms remember the unique IDs they created so each entity is added
+    once. When the user deletes a vanished disk or interface device, Home
+    Assistant removes its entities from the registry; dropping their IDs here
+    lets them be created again if that disk or interface comes back.
+    """
+    disk_keys = tuple(disk_keys)
+    interface_keys = tuple(interface_keys)
+    instance_id = entry.runtime_data.coordinator.instance_id
+
+    def forget(kind: str, child_id: str) -> None:
+        if kind == "disk":
+            ids = {disk_unique_id(instance_id, child_id, key) for key in disk_keys}
+        else:
+            ids = {
+                interface_unique_id(instance_id, child_id, key)
+                for key in interface_keys
+            }
+        known.difference_update(ids)
+
+    callbacks = entry.runtime_data.forget_device_callbacks
+    callbacks.append(forget)
+    entry.async_on_unload(lambda: callbacks.remove(forget))
 
 
 class ChirpEntity(CoordinatorEntity[ChirpCoordinator]):
@@ -127,7 +226,9 @@ class ChirpDiskEntity(CoordinatorEntity[ChirpCoordinator]):
         self._entry = entry
         self._instance_id = coordinator.instance_id
         self._disk_id: str = disk["id"]
-        self._attr_unique_id = f"{self._instance_id}_{self._disk_id}_{description.key}"
+        self._attr_unique_id = disk_unique_id(
+            self._instance_id, self._disk_id, description.key
+        )
         self._attr_device_info = disk_device_info(
             coordinator.hass, entry, self._instance_id, disk
         )
@@ -141,3 +242,46 @@ class ChirpDiskEntity(CoordinatorEntity[ChirpCoordinator]):
     def available(self) -> bool:
         """Disks missing from the latest response become unavailable."""
         return super().available and self.disk is not None
+
+
+class ChirpInterfaceEntity(CoordinatorEntity[ChirpCoordinator]):
+    """Base class for entities that belong to one network interface."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: ChirpCoordinator,
+        entry: ConfigEntry,
+        description: EntityDescription,
+        interface: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._entry = entry
+        self._instance_id = coordinator.instance_id
+        self._interface_id: str = interface["id"]
+        self._attr_unique_id = interface_unique_id(
+            self._instance_id, self._interface_id, description.key
+        )
+        self._attr_device_info = interface_device_info(
+            coordinator.hass, entry, coordinator.data, interface
+        )
+
+    @property
+    def interface(self) -> dict[str, Any] | None:
+        """Return this interface's latest data, or None when it vanished."""
+        return self.coordinator.get_interface(self._interface_id)
+
+    @property
+    def available(self) -> bool:
+        """Interfaces missing from the latest response become unavailable."""
+        return super().available and self.interface is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return whether the values are the host's or the container's."""
+        network = self.coordinator.data.get("network")
+        if self.interface is None or not isinstance(network, dict):
+            return None
+        return {"scope": network.get("scope")}

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.components.diagnostics import REDACTED, async_redact_data
 from homeassistant.core import HomeAssistant
 
 from . import ChirpConfigEntry
@@ -20,6 +21,24 @@ TO_REDACT = {
     "id",
     "hostname",
 }
+
+# Predictable interface names of USB/onboard NICs can embed the MAC address
+# (``enx001122334455``, ``wlx001122334455``). Mask any 12-hex-digit run or
+# colon-separated MAC in an interface name. The ``id`` key is already redacted.
+_MAC_RE = re.compile(r"(?i)(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}|[0-9a-f]{12}")
+
+
+def _redact_interface_names(status: dict[str, Any]) -> dict[str, Any]:
+    network = status.get("network")
+    if not isinstance(network, dict) or not isinstance(network.get("interfaces"), list):
+        return status
+    interfaces = [
+        {**item, "name": _MAC_RE.sub(REDACTED, item["name"])}
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+        else item
+        for item in network["interfaces"]
+    ]
+    return {**status, "network": {**network, "interfaces": interfaces}}
 
 
 async def async_get_config_entry_diagnostics(
@@ -39,5 +58,7 @@ async def async_get_config_entry_diagnostics(
             "last_error_at": coordinator.last_error_at,
             "last_success_at": coordinator.last_success_at,
         },
-        "status": async_redact_data(coordinator.data, TO_REDACT),
+        "status": _redact_interface_names(
+            async_redact_data(coordinator.data, TO_REDACT)
+        ),
     }
