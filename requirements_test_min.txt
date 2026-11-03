@@ -1,0 +1,5 @@
+-c constraints/homeassistant-min.txt
+homeassistant==2025.3.0
+pytest-homeassistant-custom-component==0.13.221
+# HA 2025.3.0 pins this yanked release; explicit pin reproduces its exact environment.
+aiohttp==3.11.13

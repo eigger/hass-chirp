@@ -1,0 +1,33 @@
+name: Tests
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  current:
+    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.1.5 # reviewed standards commit
+    with:
+      domain: chirp
+      python-versions: '["3.14"]'
+      lint-python-version: '3.14'
+      requirements: requirements_test.txt
+      test-profile: ha
+      ha-components: 'binary_sensor button sensor'
+      pytest-args: tests/components/chirp/ -v
+  minimum-ha:
+    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.1.5 # reviewed standards commit
+    with:
+      domain: chirp
+      python-versions: '["3.13"]'
+      lint-python-version: '3.14'
+      requirements: requirements_test_min.txt
+      expected-ha-version: '2025.3.0'
+      test-profile: ha
+      ha-components: 'binary_sensor button sensor'
+      pytest-args: tests/components/chirp/ -v

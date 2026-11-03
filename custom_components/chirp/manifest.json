@@ -1,0 +1,17 @@
+{
+  "domain": "chirp",
+  "name": "Chirp",
+  "categories": [
+    "computers_network.monitoring"
+  ],
+  "codeowners": [
+    "@eigger"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/eigger/hass-chirp",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/eigger/hass-chirp/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

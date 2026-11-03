@@ -1,0 +1,176 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Chirp 연결",
+        "description": "Chirp 서버의 주소와 포트, API 키를 입력하세요. API 키는 chp_ 로 시작하며 Chirp 호스트의 /var/lib/chirp/api-key 파일에 저장되어 있습니다.",
+        "data": {
+          "host": "주소",
+          "port": "포트",
+          "api_key": "API 키",
+          "ssl": "HTTPS 사용"
+        },
+        "data_description": {
+          "host": "Chirp 서버의 IP 주소 또는 호스트 이름입니다. http:// 나 경로는 입력하지 마세요.",
+          "port": "Chirp의 기본 포트는 80입니다.",
+          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 호스트에서 cat /var/lib/chirp/api-key 로 확인하세요.",
+          "ssl": "리버스 프록시 등으로 Chirp를 HTTPS로 제공할 때만 켜세요."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Chirp 다시 인증",
+        "description": "Chirp 서버가 저장된 API 키를 거부했습니다. 이 서버의 새 API 키를 입력하세요.",
+        "data": {
+          "api_key": "API 키"
+        },
+        "data_description": {
+          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 호스트에서 cat /var/lib/chirp/api-key 로 확인하세요."
+        }
+      },
+      "reconfigure": {
+        "title": "Chirp 재구성",
+        "description": "이 Chirp 서버의 주소를 변경합니다. 저장된 API 키를 그대로 사용하며 같은 인스턴스여야 합니다.",
+        "data": {
+          "host": "주소",
+          "port": "포트",
+          "ssl": "HTTPS 사용"
+        },
+        "data_description": {
+          "host": "Chirp 서버의 IP 주소 또는 호스트 이름입니다. http:// 나 경로는 입력하지 마세요.",
+          "port": "Chirp의 기본 포트는 80입니다.",
+          "ssl": "리버스 프록시 등으로 Chirp를 HTTPS로 제공할 때만 켜세요."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Chirp가 API 키를 거부했습니다.",
+      "cannot_connect": "Chirp에 연결할 수 없거나 응답이 올바르지 않습니다. 주소, 포트, HTTPS 설정을 확인하세요.",
+      "invalid_host": "http:// 나 경로 없이 호스트 이름 또는 IP 주소만 입력하세요.",
+      "wrong_instance": "이 API 키 또는 주소는 다른 Chirp 인스턴스의 것입니다.",
+      "unknown": "예기치 않은 오류입니다. Home Assistant 로그를 확인하세요."
+    },
+    "abort": {
+      "already_configured": "이 Chirp 인스턴스는 이미 설정되어 있습니다. 주소가 바뀌었다면 갱신했습니다.",
+      "reauth_successful": "다시 인증했습니다.",
+      "reconfigure_successful": "재구성을 완료했습니다.",
+      "wrong_instance": "이 주소의 서버는 다른 Chirp 인스턴스입니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Chirp 옵션",
+        "description": "Home Assistant가 Chirp를 조회하는 주기를 선택하세요.",
+        "data": {
+          "scan_interval": "갱신 주기(초)"
+        },
+        "data_description": {
+          "scan_interval": "30~3600초 사이로 설정합니다. SMART 데이터 자체의 갱신 주기는 Chirp가 따로 관리합니다."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_temperature": {
+        "name": "CPU 온도"
+      },
+      "cpu_max_temperature": {
+        "name": "CPU 최고 온도"
+      },
+      "cpu_core_temperature": {
+        "name": "{core} 온도"
+      },
+      "boot_time": {
+        "name": "부팅 시각"
+      },
+      "fetch_errors": {
+        "name": "연속 조회 오류"
+      },
+      "disk_temperature": {
+        "name": "온도",
+        "state_attributes": {
+          "standby": {
+            "name": "대기 모드"
+          }
+        }
+      },
+      "power_on_hours": {
+        "name": "전원 켜짐 시간"
+      },
+      "power_cycle_count": {
+        "name": "전원 켜짐 횟수"
+      },
+      "health": {
+        "name": "건강 상태",
+        "state": {
+          "ok": "정상",
+          "warning": "주의",
+          "failing": "위험",
+          "unknown": "알 수 없음"
+        },
+        "state_attributes": {
+          "reasons": {
+            "name": "사유"
+          }
+        }
+      },
+      "reallocated_sectors": {
+        "name": "재할당된 섹터"
+      },
+      "pending_sectors": {
+        "name": "대기 중 섹터"
+      },
+      "offline_uncorrectable": {
+        "name": "오프라인 복구 불가 섹터"
+      },
+      "udma_crc_errors": {
+        "name": "UDMA CRC 오류"
+      },
+      "wear": {
+        "name": "마모율"
+      },
+      "available_spare": {
+        "name": "가용 예비 공간"
+      },
+      "data_written": {
+        "name": "누적 기록량"
+      },
+      "media_errors": {
+        "name": "미디어 오류"
+      },
+      "unsafe_shutdowns": {
+        "name": "비정상 종료"
+      }
+    },
+    "binary_sensor": {
+      "any_disk_problem": {
+        "name": "디스크 문제 있음"
+      },
+      "smart_problem": {
+        "name": "SMART 문제",
+        "state_attributes": {
+          "reasons": {
+            "name": "사유"
+          },
+          "smart_passed": {
+            "name": "SMART 통과"
+          }
+        }
+      }
+    },
+    "button": {
+      "refresh_smart": {
+        "name": "SMART 데이터 새로고침"
+      }
+    }
+  },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Chirp에 SMART 새로고침을 요청하지 못했습니다. 서버에 연결할 수 있는지 확인하세요."
+    },
+    "refresh_auth_failed": {
+      "message": "Chirp가 API 키를 거부했습니다. 통합을 다시 인증하세요."
+    }
+  }
+}

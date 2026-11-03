@@ -1,0 +1,7 @@
+{
+  "name": "Chirp",
+  "render_readme": true,
+  "homeassistant": "2025.3.0",
+  "zip_release": true,
+  "filename": "chirp.zip"
+}

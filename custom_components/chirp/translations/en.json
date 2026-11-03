@@ -1,0 +1,176 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Chirp",
+        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_ and is stored on the Chirp host in /var/lib/chirp/api-key.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "api_key": "API key",
+          "ssl": "Use HTTPS"
+        },
+        "data_description": {
+          "host": "IP address or host name of the Chirp server, without http:// or a path.",
+          "port": "Chirp listens on port 80 by default.",
+          "api_key": "The Chirp API key (starts with chp_). Show it on the Chirp host with: cat /var/lib/chirp/api-key",
+          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Chirp",
+        "description": "The Chirp server rejected the stored API key. Enter a new API key for this server.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "The Chirp API key (starts with chp_). Show it on the Chirp host with: cat /var/lib/chirp/api-key"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Chirp",
+        "description": "Change the address of this Chirp server. The stored API key is reused and the server must be the same instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "ssl": "Use HTTPS"
+        },
+        "data_description": {
+          "host": "IP address or host name of the Chirp server, without http:// or a path.",
+          "port": "Chirp listens on port 80 by default.",
+          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The API key was rejected by Chirp.",
+      "cannot_connect": "Cannot connect to Chirp, or its response is invalid. Check the host, port and HTTPS setting.",
+      "invalid_host": "Enter only a host name or IP address, without http:// or a path.",
+      "wrong_instance": "This API key or address belongs to a different Chirp instance.",
+      "unknown": "Unexpected error. Check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This Chirp instance is already configured. Its address was updated if it changed.",
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Reconfiguration was successful.",
+      "wrong_instance": "The server at this address is a different Chirp instance."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Chirp options",
+        "description": "Choose how often Home Assistant polls Chirp.",
+        "data": {
+          "scan_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "Between 30 and 3600 seconds. Chirp itself refreshes SMART data on its own schedule."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_temperature": {
+        "name": "CPU temperature"
+      },
+      "cpu_max_temperature": {
+        "name": "CPU maximum temperature"
+      },
+      "cpu_core_temperature": {
+        "name": "{core} temperature"
+      },
+      "boot_time": {
+        "name": "Boot time"
+      },
+      "fetch_errors": {
+        "name": "Consecutive fetch errors"
+      },
+      "disk_temperature": {
+        "name": "Temperature",
+        "state_attributes": {
+          "standby": {
+            "name": "Standby"
+          }
+        }
+      },
+      "power_on_hours": {
+        "name": "Power-on hours"
+      },
+      "power_cycle_count": {
+        "name": "Power cycle count"
+      },
+      "health": {
+        "name": "Health",
+        "state": {
+          "ok": "OK",
+          "warning": "Warning",
+          "failing": "Failing",
+          "unknown": "Unknown"
+        },
+        "state_attributes": {
+          "reasons": {
+            "name": "Reasons"
+          }
+        }
+      },
+      "reallocated_sectors": {
+        "name": "Reallocated sectors"
+      },
+      "pending_sectors": {
+        "name": "Pending sectors"
+      },
+      "offline_uncorrectable": {
+        "name": "Offline uncorrectable sectors"
+      },
+      "udma_crc_errors": {
+        "name": "UDMA CRC errors"
+      },
+      "wear": {
+        "name": "Wear"
+      },
+      "available_spare": {
+        "name": "Available spare"
+      },
+      "data_written": {
+        "name": "Data written"
+      },
+      "media_errors": {
+        "name": "Media errors"
+      },
+      "unsafe_shutdowns": {
+        "name": "Unsafe shutdowns"
+      }
+    },
+    "binary_sensor": {
+      "any_disk_problem": {
+        "name": "Any disk problem"
+      },
+      "smart_problem": {
+        "name": "SMART problem",
+        "state_attributes": {
+          "reasons": {
+            "name": "Reasons"
+          },
+          "smart_passed": {
+            "name": "SMART passed"
+          }
+        }
+      }
+    },
+    "button": {
+      "refresh_smart": {
+        "name": "Refresh SMART data"
+      }
+    }
+  },
+  "exceptions": {
+    "refresh_failed": {
+      "message": "Could not ask Chirp to refresh SMART data. Check that the server is reachable."
+    },
+    "refresh_auth_failed": {
+      "message": "Chirp rejected the API key. Re-authenticate the integration."
+    }
+  }
+}
