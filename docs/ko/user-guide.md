@@ -99,7 +99,7 @@ Chirp 인스턴스마다 고유 ID가 있습니다. 같은 인스턴스를 다�
 | 수신 속도, 송신 속도 | `rx_rate`, `tx_rate` | 데이터 속도, Chirp의 B/s를 Mbit/s로 표시, measurement; Chirp의 첫 샘플과 카운터 리셋 직후에는 *알 수 없음* | 활성 |
 | 누적 수신량, 누적 송신량 | `rx_total`, `tx_total` | 데이터 크기(GB로 표시), total increasing(인터페이스가 생성된 뒤의 커널 누적 카운터) | 진단용, 활성 |
 | 링크 | `link` | 연결 이진 센서, Chirp가 링크를 up으로 보고하면 켜짐(operstate `up`, 또는 `unknown`이면서 carrier 있음); 속성 `oper_state`, `kind` | 활성 |
-| 링크 속도 | `speed` | 데이터 속도, Mbit/s; 드라이버가 보고하지 않으면(브리지·VLAN) *알 수 없음* | 진단용, 활성 |
+| 링크 속도 | `speed` | 데이터 속도, Mbit/s; 드라이버가 보고하지 않을 때(브리지·VLAN)와 링크가 끊겨 있는 동안 *알 수 없음* | 진단용, 활성 |
 | 수신 오류, 송신 오류, 수신 드롭, 송신 드롭 | `rx_errors`, `tx_errors`, `rx_dropped`, `tx_dropped` | total increasing | 진단용, 비활성 |
 
 Chirp는 기본적으로 물리 NIC·본드·브리지·VLAN을 나열하고 `veth*`, `tap*`, Docker 등 가상 장치는 숨깁니다. 서버의 `CHIRP_NET_INCLUDE` / `CHIRP_NET_EXCLUDE`로 바꿀 수 있습니다. 인터페이스마다 기본 활성 엔티티 6개(속도, 누적량, 링크, 링크 속도)와 비활성 4개가 생기므로, 필요 없는 인터페이스는 서버에서 제외하세요.

@@ -99,7 +99,7 @@ The load sensors and CPU usage have a `cpu_count` attribute (logical CPUs in tha
 | Receive rate, Transmit rate | `rx_rate`, `tx_rate` | data rate, B/s from Chirp shown in Mbit/s, measurement; *unknown* on Chirp's first sample and after a counter reset | Enabled |
 | Data received, Data sent | `rx_total`, `tx_total` | data size (shown in GB), total increasing (cumulative kernel counters since the interface was created) | Diagnostic, enabled |
 | Link | `link` | connectivity binary sensor, on when Chirp reports the link as up (operstate `up`, or `unknown` with carrier); attributes `oper_state`, `kind` | Enabled |
-| Link speed | `speed` | data rate, Mbit/s; *unknown* when the driver reports none (bridges, VLANs) | Diagnostic, enabled |
+| Link speed | `speed` | data rate, Mbit/s; *unknown* when the driver reports none (bridges, VLANs) and while the link is down | Diagnostic, enabled |
 | Receive errors, Transmit errors, Receive drops, Transmit drops | `rx_errors`, `tx_errors`, `rx_dropped`, `tx_dropped` | total increasing | Diagnostic, disabled |
 
 Chirp lists physical NICs, bonds, bridges and VLANs by default and hides `veth*`, `tap*`, Docker and other virtual devices; `CHIRP_NET_INCLUDE` / `CHIRP_NET_EXCLUDE` on the server change that. Each interface adds 6 entities enabled by default (rates, totals, link, link speed) and 4 disabled ones, so exclude interfaces you do not need on the server.
