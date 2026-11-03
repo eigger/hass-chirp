@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Chirp",
-        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_ and is shown in the Chirp dashboard under Settings → API key.",
+        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_. Find it in the Chirp dashboard under Settings → API key, or run key show on the Chirp server (see the documentation).",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -14,7 +14,7 @@
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
           "port": "Chirp listens on port 80 by default.",
-          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key.",
+          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key, or run key show on the Chirp server (see the documentation).",
           "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy.",
           "verify_ssl": "Turn off only for a self-signed certificate on a server you trust. Applies only with HTTPS."
         }
@@ -26,7 +26,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key."
+          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key, or run key show on the Chirp server (see the documentation)."
         }
       },
       "reconfigure": {

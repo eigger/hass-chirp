@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Chirp 연결",
-        "description": "Chirp 서버의 주소와 포트, API 키를 입력하세요. API 키는 chp_ 로 시작하며 Chirp 대시보드의 설정 → API 키에서 확인할 수 있습니다.",
+        "description": "Chirp 서버의 주소와 포트, API 키를 입력하세요. API 키는 chp_ 로 시작합니다. Chirp 대시보드의 설정 → API 키에서 확인하거나, Chirp 서버에서 key show 명령을 실행하세요(문서 참고).",
         "data": {
           "host": "주소",
           "port": "포트",
@@ -14,7 +14,7 @@
         "data_description": {
           "host": "Chirp 서버의 IP 주소 또는 호스트 이름입니다. http:// 나 경로는 입력하지 마세요.",
           "port": "Chirp의 기본 포트는 80입니다.",
-          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 대시보드의 설정 → API 키에서 확인하세요.",
+          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 대시보드의 설정 → API 키에서 확인하거나, Chirp 서버에서 key show 명령을 실행하세요(문서 참고).",
           "ssl": "리버스 프록시 등으로 Chirp를 HTTPS로 제공할 때만 켜세요.",
           "verify_ssl": "신뢰하는 서버의 자체 서명 인증서일 때만 끄세요. HTTPS를 사용할 때만 적용됩니다."
         }
@@ -26,7 +26,7 @@
           "api_key": "API 키"
         },
         "data_description": {
-          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 대시보드의 설정 → API 키에서 확인하세요."
+          "api_key": "Chirp API 키입니다(chp_ 로 시작). Chirp 대시보드의 설정 → API 키에서 확인하거나, Chirp 서버에서 key show 명령을 실행하세요(문서 참고)."
         }
       },
       "reconfigure": {
