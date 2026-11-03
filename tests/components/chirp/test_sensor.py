@@ -33,15 +33,15 @@ async def test_host_sensors(hass, setup_entry, entity_id, registered):
 async def test_disabled_by_default_temperatures(hass, setup_entry, registered):
     for key in (
         "cpu_max_temperature",
-        "cpu_core_temperature_0",
-        "cpu_core_temperature_1",
+        "cpu_core_temperature_core_0",
+        "cpu_core_temperature_core_1",
     ):
         reg = registered(f"{INSTANCE_ID}_{key}")
         assert reg is not None, key
         assert reg.disabled_by is er.RegistryEntryDisabler.INTEGRATION
         assert hass.states.get(reg.entity_id) is None
-    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_2") is None
-    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_1").translation_key == (
+    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_core_2") is None
+    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_core_1").translation_key == (
         "cpu_core_temperature"
     )
 
@@ -63,7 +63,7 @@ async def test_ata_hdd_sensors(hass, setup_entry, entity_id, registered):
     health = state("health")
     assert health.state == "warning"
     assert health.attributes["reasons"] == [{"code": "reallocated_sectors", "value": 8}]
-    assert health.attributes["options"] == ["ok", "warning", "failing", "unknown"]
+    assert health.attributes["options"] == ["ok", "warning", "failing"]
     assert state("reallocated_sectors").state == "8"
     assert state("pending_sectors").state == "0"
     assert state("offline_uncorrectable").state == "0"
@@ -282,3 +282,64 @@ async def test_permanent_dev_id_is_used_after_a_read(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert registered(f"{INSTANCE_ID}_dev_sda_temperature") is not None
+
+
+async def test_core_sensors_follow_labels_not_positions(
+    hass, entry, aioclient_mock, registered
+):
+    """Cores are keyed by label, so a reordered list keeps each value in place."""
+    payload = load_status()
+    payload["cpu"]["cores"] = [
+        {"label": "Core 0", "temp": 40.0},
+        {"label": "Core 0", "temp": 41.0},  # second socket reuses the label
+        {"label": "", "temp": 42.0},
+    ]
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    keys = ("core_0", "core_0_2", "index_2")
+    for key in keys:
+        reg = registered(f"{INSTANCE_ID}_cpu_core_temperature_{key}")
+        assert reg is not None, key
+        registry.async_update_entity(reg.entity_id, disabled_by=None)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    def value(key):
+        reg = registered(f"{INSTANCE_ID}_cpu_core_temperature_{key}")
+        return hass.states.get(reg.entity_id).state
+
+    assert [value(key) for key in keys] == ["40.0", "41.0", "42.0"]
+
+    reordered = load_status()
+    reordered["cpu"]["cores"] = [
+        {"label": "", "temp": 50.0},
+        {"label": "Core 1", "temp": 52.0},
+        {"label": "Core 0", "temp": 51.0},
+    ]
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(STATUS_URL, json=reordered)
+    await entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert value("core_0") == "51.0"
+    assert value("core_0_2") == "unknown"
+    assert value("index_2") == "unknown"
+    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_index_0") is not None
+    assert registered(f"{INSTANCE_ID}_cpu_core_temperature_core_1") is not None
+
+
+async def test_server_unknown_health_is_ha_unknown_state(
+    hass, setup_entry, api_response, entity_id
+):
+    payload = load_status()
+    payload["disks"][0]["health"] = {"status": "unknown", "reasons": []}
+    payload["disks"][1]["health"] = {"status": "bogus", "reasons": []}
+    api_response.clear_requests()
+    api_response.get(STATUS_URL, json=payload)
+    await setup_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    for disk in (HDD, NVME):
+        health = hass.states.get(entity_id(f"{disk}_health"))
+        assert health.state == "unknown"
+        assert "unknown" not in health.attributes["options"]

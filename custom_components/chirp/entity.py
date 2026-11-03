@@ -40,11 +40,12 @@ def host_device_info(entry: ConfigEntry, status: dict[str, Any]) -> DeviceInfo:
 def is_provisional_disk(disk: dict[str, Any]) -> bool:
     """Return True for a disk whose ID is only a placeholder.
 
-    Chirp names a disk ``dev_<device name>`` until it has read the disk once
-    (standby or unreadable at server start). The real ID (WWN or model+serial)
-    replaces it after the first read, so creating entities for the placeholder
-    would leave orphaned devices behind and could later attach another disk
-    that reuses the device name. A ``dev_`` ID of a disk that has been read is
+    Chirp normally derives a disk's final ID (WWN or model+serial) without
+    reading the disk. Only when the identity cannot be derived (for example a
+    disk behind a SAS HBA or USB bridge that is in standby at server start) does
+    it use ``dev_<device name>`` until the first read. The real ID then replaces
+    it, so creating entities for the placeholder would leave orphaned devices
+    behind and could later attach another disk that reuses the device name. A ``dev_`` ID of a disk that has been read is
     permanent (the disk reports no identity) and is used as-is.
     """
     return str(disk.get("id", "")).startswith("dev_") and not disk.get("lastReadAt")

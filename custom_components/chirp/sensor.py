@@ -23,9 +23,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from . import ChirpConfigEntry
-from .const import HEALTH_STATES, HEALTH_UNKNOWN
+from .const import HEALTH_STATES
 from .coordinator import ChirpCoordinator
 from .entity import ChirpDiskEntity, ChirpEntity, is_provisional_disk
 
@@ -110,23 +111,44 @@ HOST_SENSORS: tuple[ChirpSensorDescription, ...] = (
 )
 
 
-def _core_descriptions(status: dict[str, Any]) -> list[ChirpSensorDescription]:
-    """Build one disabled-by-default sensor per CPU core reported by the server."""
-    descriptions: list[ChirpSensorDescription] = []
+def _core_keys(status: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Return ``(stable key, core)`` for every CPU core in a snapshot.
+
+    The key comes from the core's label (``"Core 0"`` -> ``core_0``) so that a
+    server that lists the cores in another order still maps each value to the
+    same entity. A core without a usable label falls back to its position, and
+    a repeated label (for example ``Core 0`` on each socket) gets a ``_2``,
+    ``_3`` ... suffix in the order the server reports it.
+    """
     cores = _cpu(status).get("cores")
+    result: list[tuple[str, dict[str, Any]]] = []
+    seen: dict[str, int] = {}
     for index, core in enumerate(cores if isinstance(cores, list) else []):
         if not isinstance(core, dict):
             continue
+        base = slugify(str(core.get("label") or "")) or f"index_{index}"
+        seen[base] = seen.get(base, 0) + 1
+        key = base if seen[base] == 1 else f"{base}_{seen[base]}"
+        result.append((key, core))
+    return result
 
-        def value_fn(data: dict[str, Any], index: int = index) -> float | int | None:
-            cores = _cpu(data).get("cores") or []
-            if index >= len(cores) or not isinstance(cores[index], dict):
-                return None
-            return _number(cores[index].get("temp"))
+
+def _core(status: dict[str, Any], key: str) -> dict[str, Any] | None:
+    return next((core for k, core in _core_keys(status) if k == key), None)
+
+
+def _core_descriptions(status: dict[str, Any]) -> list[ChirpSensorDescription]:
+    """Build one disabled-by-default sensor per CPU core reported by the server."""
+    descriptions: list[ChirpSensorDescription] = []
+    for index, (core_key, core) in enumerate(_core_keys(status)):
+
+        def value_fn(data: dict[str, Any], key: str = core_key) -> float | int | None:
+            found = _core(data, key)
+            return None if found is None else _number(found.get("temp"))
 
         descriptions.append(
             ChirpSensorDescription(
-                key=f"cpu_core_temperature_{index}",
+                key=f"cpu_core_temperature_{core_key}",
                 translation_key="cpu_core_temperature",
                 device_class=SensorDeviceClass.TEMPERATURE,
                 native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -135,9 +157,7 @@ def _core_descriptions(status: dict[str, Any]) -> list[ChirpSensorDescription]:
                 entity_registry_enabled_default=False,
                 placeholders={"core": str(core.get("label") or f"Core {index}")},
                 value_fn=value_fn,
-                exists_fn=lambda data, index=index: (
-                    len(_cpu(data).get("cores") or []) > index
-                ),
+                exists_fn=lambda data, key=core_key: _core(data, key) is not None,
             )
         )
     return descriptions
@@ -183,10 +203,16 @@ def _data_written_tb(disk: dict[str, Any]) -> float | None:
     return written / 1e12
 
 
-def _health_status(disk: dict[str, Any]) -> str:
+def _health_status(disk: dict[str, Any]) -> str | None:
+    """Return the server's health verdict, or None (HA "unknown") otherwise.
+
+    Chirp's own ``unknown`` verdict (disk not read yet, standby since start or
+    unreadable) is reported as Home Assistant's unknown state instead of an
+    ENUM option of the same name, matching the SMART problem binary sensor.
+    """
     health = disk.get("health")
     status = health.get("status") if isinstance(health, dict) else None
-    return status if status in HEALTH_STATES else HEALTH_UNKNOWN
+    return status if status in HEALTH_STATES else None
 
 
 def _health_reasons(disk: dict[str, Any]) -> list[dict[str, Any]]:
@@ -381,6 +407,11 @@ class ChirpFetchErrorSensor(ChirpEntity, SensorEntity):
                 state_class=SensorStateClass.MEASUREMENT,
             ),
         )
+
+    @property
+    def available(self) -> bool:
+        """Stay available while the server is down; that is what it reports."""
+        return True
 
     @property
     def native_value(self) -> int:

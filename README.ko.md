@@ -23,10 +23,10 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크 온도·CPU 온도를 �
 ## 주요 기능
 
 - 모니터링 대상 호스트 기기(CPU 온도, 부팅 시각, "디스크 문제 있음", SMART 새로고침 버튼)와 디스크별 기기
-- 디스크별 온도(대기 모드에서도 마지막 값 유지)·전원 켜짐 시간·건강 상태(`ok`/`warning`/`failing`/`unknown`과 사유)·SMART 문제 이진 센서
+- 디스크별 온도(대기 모드에서도 마지막 값 유지)·전원 켜짐 시간·건강 상태(`ok`/`warning`/`failing`과 사유, Chirp가 디스크를 읽기 전에는 Home Assistant의 *알 수 없음*)·SMART 문제 이진 센서
 - 프로토콜별 카운터: SATA는 재할당·대기 중 섹터, SSD/NVMe는 마모율·가용 예비 공간·누적 기록량·미디어 오류
 - 나중에 나타난 디스크는 자동 추가, 사라진 디스크는 사용 불가로 표시
-- Chirp에 연결할 수 없을 때 마지막 값을 유지하고 연속 오류 횟수를 표시
+- 짧은 장애 동안은 마지막 값을 유지하고, 연속 3회 조회에 실패하면 Chirp가 다시 응답할 때까지 엔티티를 사용할 수 없음으로 표시. 연속 오류 횟수 센서는 진단용으로 계속 표시
 
 ## 요구사항
 
@@ -46,7 +46,7 @@ Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/
 
 2. HACS에서 `eigger/hass-chirp`를 사용자 지정 **Integration** 저장소로 추가하고 **Chirp** 를 설치한 뒤 Home Assistant를 재시작합니다.
 3. **설정 → 기기 및 서비스 → 통합 추가 → Chirp** 로 이동합니다.
-4. Chirp의 **주소**(IP 또는 이름), **포트**(기본 `80`), **API 키**를 입력합니다. Chirp를 HTTPS로 제공할 때만 *HTTPS 사용*을 켭니다.
+4. Chirp의 **주소**(IP 또는 이름), **포트**(기본 `80`), **API 키**를 입력합니다. Chirp를 HTTPS로 제공할 때만 *HTTPS 사용*을 켜고, 신뢰하는 서버의 자체 서명 인증서일 때만 *SSL 인증서 확인*을 끕니다.
 
 API 키는 `chp_`로 시작합니다. Chirp 호스트에서 `cat /var/lib/chirp/api-key`로 확인합니다(Proxmox 컨테이너 안이라면 `pct exec <ctid> -- cat /var/lib/chirp/api-key`). [자세한 안내](docs/ko/user-guide.md#설치)
 
@@ -58,7 +58,7 @@ target:
   entity_id: button.pve_refresh_smart_data
 ```
 
-실제 설치에서 생성된 엔티티 ID를 사용하세요. 이 버튼은 Chirp에 SMART 데이터를 지금 다시 읽도록 요청하며, Chirp의 쿨다운(429)은 오류로 취급하지 않습니다. 통합 옵션에서 조회 주기(30~3600초)를 바꿀 수 있습니다. [문제 해결](docs/ko/user-guide.md#제한-사항과-문제-해결)
+실제 설치에서 생성된 엔티티 ID를 사용하세요. 이 버튼은 Chirp에 SMART 데이터를 지금 다시 읽도록 요청한 뒤 새 값이 들어올 때까지 몇 번 더 조회하며(5초 간격, 최대 30초), Chirp의 쿨다운(429)은 오류로 취급하지 않습니다. 통합 옵션에서 조회 주기(30~3600초)를 바꿀 수 있습니다. [문제 해결](docs/ko/user-guide.md#제한-사항과-문제-해결)
 
 ## 문서
 

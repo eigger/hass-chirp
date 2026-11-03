@@ -22,7 +22,7 @@ hass-chirp는 Chirp 서버(eigger/chirp)의 디스크 SMART·CPU 온도 모니�
 - HA-02: Chirp는 호스트의 디스크 SMART 건강 상태와 CPU·디스크 온도를 보고하는 셀프호스팅 모니터이므로 주 분류 `computers_network.monitoring`을 선택했습니다. 엔티티 플랫폼에서 추정하지 않았고 보조 분류는 없습니다. 근거는 `.hass-standards.json.categories_review`에 기록했습니다. `integration_type`은 `device`입니다.
 - HACS-02~04: Custom 상태를 유지하며 `zip_release: true`, `filename: chirp.zip`과 중앙 Release caller를 사용합니다. 첫 Release는 manifest 버전 0.1.0과 일치하는 tag로 게시해야 ZIP이 첨부됩니다.
 - 브랜드: 원본 아트워크를 `scripts/generate_brand.py`로 생성합니다. 출처·라이선스·재생성·해시는 `custom_components/chirp/brand/README.md`에 있습니다.
-- 문서: 영문 `README.md`, 한국어 `README.ko.md`, 이전 경로 `README.en.md` 안내, `docs/`와 `docs/ko/` 사용자·개발 문서를 제공합니다.
+- 문서: 기본 영어 `README.md`, 한국어 `README.ko.md`, `docs/`와 `docs/ko/` 사용자·개발 문서를 제공합니다.
 
 ## 검증 환경과 경계
 

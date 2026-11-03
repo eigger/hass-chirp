@@ -12,7 +12,15 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import ChirpApi
-from .const import CONF_API_KEY, CONF_HOST, CONF_PORT, CONF_SSL, DOMAIN
+from .const import (
+    CONF_API_KEY,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_SSL,
+    CONF_VERIFY_SSL,
+    DEFAULT_VERIFY_SSL,
+    DOMAIN,
+)
 from .coordinator import ChirpCoordinator, scan_interval_from_options
 from .entity import host_device_info
 
@@ -32,7 +40,9 @@ ChirpConfigEntry = ConfigEntry[ChirpRuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> bool:
     """Set up Chirp from a config entry."""
     api = ChirpApi(
-        async_get_clientsession(hass),
+        async_get_clientsession(
+            hass, verify_ssl=entry.data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL)
+        ),
         entry.data[CONF_HOST],
         entry.data[CONF_PORT],
         entry.data[CONF_API_KEY],

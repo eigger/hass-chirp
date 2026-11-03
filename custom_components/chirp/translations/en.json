@@ -8,13 +8,15 @@
           "host": "Host",
           "port": "Port",
           "api_key": "API key",
-          "ssl": "Use HTTPS"
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
           "port": "Chirp listens on port 80 by default.",
           "api_key": "The Chirp API key (starts with chp_). Show it on the Chirp host with: cat /var/lib/chirp/api-key",
-          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy."
+          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy.",
+          "verify_ssl": "Turn off only for a self-signed certificate on a server you trust. Applies only with HTTPS."
         }
       },
       "reauth_confirm": {
@@ -33,12 +35,14 @@
         "data": {
           "host": "Host",
           "port": "Port",
-          "ssl": "Use HTTPS"
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate"
         },
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
           "port": "Chirp listens on port 80 by default.",
-          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy."
+          "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy.",
+          "verify_ssl": "Turn off only for a self-signed certificate on a server you trust. Applies only with HTTPS."
         }
       }
     },
@@ -50,7 +54,7 @@
       "unknown": "Unexpected error. Check the Home Assistant logs."
     },
     "abort": {
-      "already_configured": "This Chirp instance is already configured. Its address was updated if it changed.",
+      "already_configured": "This Chirp instance is already configured. Its address and API key were updated.",
       "reauth_successful": "Re-authentication was successful.",
       "reconfigure_successful": "Reconfiguration was successful.",
       "wrong_instance": "The server at this address is a different Chirp instance."
@@ -106,8 +110,7 @@
         "state": {
           "ok": "OK",
           "warning": "Warning",
-          "failing": "Failing",
-          "unknown": "Unknown"
+          "failing": "Failing"
         },
         "state_attributes": {
           "reasons": {
@@ -171,6 +174,15 @@
     },
     "refresh_auth_failed": {
       "message": "Chirp rejected the API key. Re-authenticate the integration."
+    },
+    "cannot_connect": {
+      "message": "Cannot get data from Chirp: {error}"
+    },
+    "invalid_auth": {
+      "message": "Chirp rejected the API key. Re-authenticate the integration."
+    },
+    "wrong_instance": {
+      "message": "A different Chirp instance answered at the configured address. Reconfigure the entry to point at the right server."
     }
   }
 }

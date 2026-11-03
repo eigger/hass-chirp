@@ -23,10 +23,10 @@ A **read-only** Home Assistant custom integration for [Chirp](https://github.com
 ## Features
 
 - One device for the monitored host (CPU temperature, boot time, "any disk problem" and a SMART refresh button) plus one device per disk
-- Per-disk temperature (kept while the disk is in standby), power-on hours, health (`ok` / `warning` / `failing` / `unknown` with reasons) and a SMART problem binary sensor
+- Per-disk temperature (kept while the disk is in standby), power-on hours, health (`ok` / `warning` / `failing` with reasons; Home Assistant's *unknown* until Chirp has read the disk) and a SMART problem binary sensor
 - Protocol-specific counters: reallocated and pending sectors for SATA, wear, available spare, data written and media errors for SSD/NVMe
 - Disks that appear later are added automatically; disks that vanish become unavailable
-- Last known values are kept when Chirp is unreachable, with a consecutive error counter
+- Last known values ride out brief outages; after 3 failed polls in a row the entities become unavailable until Chirp answers again. A consecutive error counter stays available for diagnosis
 
 ## Requirements
 
@@ -46,7 +46,7 @@ Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eig
 
 2. Add `eigger/hass-chirp` as a custom **Integration** repository in HACS, install **Chirp** and restart Home Assistant.
 3. Go to **Settings → Devices & services → Add integration → Chirp**.
-4. Enter the Chirp **host** (IP address or name), **port** (default `80`) and **API key**. Tick *Use HTTPS* only if Chirp is served over HTTPS.
+4. Enter the Chirp **host** (IP address or name), **port** (default `80`) and **API key**. Tick *Use HTTPS* only if Chirp is served over HTTPS; untick *Verify SSL certificate* only for a self-signed certificate on a server you trust.
 
 The API key starts with `chp_`. On the Chirp host, show it with `cat /var/lib/chirp/api-key` (inside a Proxmox container: `pct exec <ctid> -- cat /var/lib/chirp/api-key`). [More details](docs/user-guide.md#installation)
 
@@ -58,7 +58,7 @@ target:
   entity_id: button.pve_refresh_smart_data
 ```
 
-Use the actual entity ID created by your installation. The button asks Chirp to re-read SMART data now; Chirp applies its own cooldown and the integration ignores it. Integration options let you change the polling interval (30–3600 seconds). [Troubleshooting](docs/user-guide.md#limitations-and-troubleshooting)
+Use the actual entity ID created by your installation. The button asks Chirp to re-read SMART data now and then polls a few more times (every 5 seconds, up to 30 seconds) until the new readings arrive; Chirp applies its own cooldown and the integration ignores it. Integration options let you change the polling interval (30–3600 seconds). [Troubleshooting](docs/user-guide.md#limitations-and-troubleshooting)
 
 ## Documentation
 

@@ -33,9 +33,11 @@ from .const import (
     CONF_PORT,
     CONF_SCAN_INTERVAL,
     CONF_SSL,
+    CONF_VERIFY_SSL,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SSL,
+    DEFAULT_VERIFY_SSL,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
@@ -59,19 +61,36 @@ def _connection_schema(*, with_key: bool) -> vol.Schema:
     if with_key:
         fields[vol.Required(CONF_API_KEY)] = _API_KEY
     fields[vol.Required(CONF_SSL, default=DEFAULT_SSL)] = bool
+    fields[vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL)] = bool
     return vol.Schema(fields)
 
 
+def _connection_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Return the host, port and TLS settings entered in a form."""
+    return {
+        CONF_HOST: user_input[CONF_HOST].strip(),
+        CONF_PORT: int(user_input[CONF_PORT]),
+        CONF_SSL: bool(user_input[CONF_SSL]),
+        CONF_VERIFY_SSL: bool(user_input.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL)),
+    }
+
+
 async def _validate(
-    flow: ConfigFlow,
-    host: str,
-    port: int,
-    api_key: str,
-    use_ssl: bool,
+    flow: ConfigFlow, connection: dict[str, Any], api_key: str
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Return ``(status, None)`` on success or ``(None, error_key)``."""
+    session = async_get_clientsession(
+        flow.hass,
+        verify_ssl=connection.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+    )
     try:
-        api = ChirpApi(async_get_clientsession(flow.hass), host, port, api_key, use_ssl)
+        api = ChirpApi(
+            session,
+            connection[CONF_HOST],
+            connection[CONF_PORT],
+            api_key,
+            connection[CONF_SSL],
+        )
     except ValueError:
         return None, "invalid_host"
     try:
@@ -92,31 +111,27 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Ask for the host, port, API key and SSL flag."""
+        """Ask for the host, port, API key and TLS settings."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            port = int(user_input[CONF_PORT])
+            connection = _connection_input(user_input)
             api_key = user_input[CONF_API_KEY].strip()
-            use_ssl = bool(user_input[CONF_SSL])
-            status, error = await _validate(self, host, port, api_key, use_ssl)
+            status, error = await _validate(self, connection, api_key)
             if status is None:
                 errors["base"] = error or "unknown"
             else:
                 instance = status["instance"]
                 await self.async_set_unique_id(str(instance["id"]))
-                host = normalize_host(host).strip("[]")
-                self._abort_if_unique_id_configured(
-                    updates={CONF_HOST: host, CONF_PORT: port, CONF_SSL: use_ssl}
-                )
+                data = {
+                    **connection,
+                    CONF_HOST: normalize_host(connection[CONF_HOST]).strip("[]"),
+                    CONF_API_KEY: api_key,
+                }
+                # The entered key just authenticated against this very instance,
+                # so adding it again safely refreshes the address and the key.
+                self._abort_if_unique_id_configured(updates=data)
                 return self.async_create_entry(
-                    title=str(instance.get("hostname") or "Chirp"),
-                    data={
-                        CONF_HOST: host,
-                        CONF_PORT: port,
-                        CONF_API_KEY: api_key,
-                        CONF_SSL: use_ssl,
-                    },
+                    title=str(instance.get("hostname") or "Chirp"), data=data
                 )
 
         return self.async_show_form(
@@ -139,13 +154,7 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reauth_entry()
         if user_input is not None:
             api_key = user_input[CONF_API_KEY].strip()
-            status, error = await _validate(
-                self,
-                entry.data[CONF_HOST],
-                entry.data[CONF_PORT],
-                api_key,
-                entry.data[CONF_SSL],
-            )
+            status, error = await _validate(self, dict(entry.data), api_key)
             if status is None:
                 errors["base"] = error or "unknown"
             elif str(status["instance"]["id"]) != entry.unique_id:
@@ -168,12 +177,8 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry()
         if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            port = int(user_input[CONF_PORT])
-            use_ssl = bool(user_input[CONF_SSL])
-            status, error = await _validate(
-                self, host, port, entry.data[CONF_API_KEY], use_ssl
-            )
+            connection = _connection_input(user_input)
+            status, error = await _validate(self, connection, entry.data[CONF_API_KEY])
             if status is None:
                 errors["base"] = error or "unknown"
             else:
@@ -182,9 +187,8 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_update_reload_and_abort(
                     entry,
                     data_updates={
-                        CONF_HOST: normalize_host(host).strip("[]"),
-                        CONF_PORT: port,
-                        CONF_SSL: use_ssl,
+                        **connection,
+                        CONF_HOST: normalize_host(connection[CONF_HOST]).strip("[]"),
                     },
                 )
 
@@ -192,6 +196,7 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_HOST: entry.data[CONF_HOST],
             CONF_PORT: entry.data[CONF_PORT],
             CONF_SSL: entry.data[CONF_SSL],
+            CONF_VERIFY_SSL: entry.data.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
         }
         return self.async_show_form(
             step_id="reconfigure",

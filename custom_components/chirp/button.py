@@ -26,7 +26,7 @@ async def async_setup_entry(
 
 
 class ChirpRefreshButton(ChirpEntity, ButtonEntity):
-    """Queue a SMART re-read on the server, then refresh the coordinator."""
+    """Queue a SMART re-read on the server, then follow it with polls."""
 
     def __init__(self, coordinator: ChirpCoordinator, entry: ChirpConfigEntry) -> None:
         super().__init__(
@@ -38,9 +38,15 @@ class ChirpRefreshButton(ChirpEntity, ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        """Request a SMART refresh; the server's cooldown (429) is not an error."""
+        """Request a SMART refresh; the server's cooldown (429) is not an error.
+
+        A queued read (202) finishes in the background on the server, so the
+        coordinator follows it with a few delayed polls instead of reading the
+        previous values right away. During the cooldown a read is already
+        running or just finished, so one refresh is enough.
+        """
         try:
-            await self.coordinator.api.async_refresh()
+            queued = await self.coordinator.api.async_refresh()
         except ChirpAuthError:
             self._entry.async_start_reauth(self.hass)
             raise HomeAssistantError(
@@ -50,4 +56,7 @@ class ChirpRefreshButton(ChirpEntity, ButtonEntity):
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="refresh_failed"
             ) from None
-        await self.coordinator.async_request_refresh()
+        if queued:
+            self.coordinator.async_start_smart_refresh_follow()
+        else:
+            await self.coordinator.async_request_refresh()

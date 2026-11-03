@@ -1,5 +1,7 @@
 """Exercise config, reauth, reconfigure and options flows through HA."""
 
+from unittest.mock import patch
+
 import aiohttp
 import pytest
 from homeassistant import config_entries
@@ -32,7 +34,7 @@ async def test_user_flow_creates_entry(hass, aioclient_mock, status_payload):
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "pve"
-    assert result["data"] == USER_INPUT
+    assert result["data"] == {**USER_INPUT, "verify_ssl": True}
     assert result["result"].unique_id == INSTANCE_ID
     assert aioclient_mock.mock_calls[0][3]["Authorization"] == f"Bearer {KEY}"
 
@@ -98,7 +100,7 @@ async def test_user_flow_errors_then_recovery(
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-async def test_duplicate_instance_updates_address(hass, entry, aioclient_mock):
+async def test_duplicate_instance_updates_address_and_key(hass, entry, aioclient_mock):
     aioclient_mock.get("https://chirp-new.test:8443/api/v1/status", json=load_status())
     result = await _start_user(hass)
     result = await hass.config_entries.flow.async_configure(
@@ -110,8 +112,9 @@ async def test_duplicate_instance_updates_address(hass, entry, aioclient_mock):
     assert entry.data["host"] == "chirp-new.test"
     assert entry.data["port"] == 8443
     assert entry.data["ssl"] is True
-    # Only the address changed; the stored key is untouched.
-    assert entry.data["api_key"] != KEY
+    assert entry.data["verify_ssl"] is True
+    # The entered key authenticated against this instance, so it is stored too.
+    assert entry.data["api_key"] == KEY
 
 
 async def test_reauth_flow_success_and_errors(hass, setup_entry, aioclient_mock):
@@ -231,3 +234,79 @@ async def test_options_flow_rejects_out_of_range(hass, setup_entry, value):
             result["flow_id"], {"scan_interval": value}
         )
     assert isinstance(err.value, Invalid) or "scan_interval" in str(err.value)
+
+
+async def test_user_flow_self_signed_https_skips_verification(
+    hass, aioclient_mock, status_payload
+):
+    """verify_ssl reaches HA's shared session helper for the flow and setup."""
+    from homeassistant.helpers import aiohttp_client
+
+    import custom_components.chirp as chirp_init
+    from custom_components.chirp import config_flow
+
+    calls = []
+
+    def recording(hass, verify_ssl=True, **kwargs):
+        calls.append(verify_ssl)
+        return aiohttp_client.async_get_clientsession(hass, verify_ssl, **kwargs)
+
+    aioclient_mock.get("https://chirp.test/api/v1/status", json=status_payload)
+    with (
+        patch.object(config_flow, "async_get_clientsession", recording),
+        patch.object(chirp_init, "async_get_clientsession", recording),
+    ):
+        result = await _start_user(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {**USER_INPUT, "port": 443, "ssl": True, "verify_ssl": False},
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["verify_ssl"] is False
+    assert calls == [False, False]
+
+
+async def test_reconfigure_changes_verify_ssl(hass, setup_entry, aioclient_mock):
+    entry = setup_entry
+    assert "verify_ssl" not in entry.data  # entries from before the option
+    result = await entry.start_reconfigure_flow(hass)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get("https://chirp.test/api/v1/status", json=load_status())
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"host": "chirp.test", "port": 443, "ssl": True, "verify_ssl": False},
+    )
+    await hass.async_block_till_done()
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data["ssl"] is True
+    assert entry.data["verify_ssl"] is False
+    assert entry.state is ConfigEntryState.LOADED
+
+
+async def test_duplicate_with_rejected_key_keeps_entry(hass, entry, aioclient_mock):
+    aioclient_mock.get(STATUS_URL, status=401)
+    result = await _start_user(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], USER_INPUT
+    )
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data["api_key"] != KEY
+
+
+async def test_duplicate_reloads_loaded_entry_with_new_key(
+    hass, setup_entry, aioclient_mock
+):
+    first = setup_entry.runtime_data.coordinator
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(STATUS_URL, json=load_status())
+    result = await _start_user(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], USER_INPUT
+    )
+    await hass.async_block_till_done()
+    assert result["reason"] == "already_configured"
+    assert setup_entry.data["api_key"] == KEY
+    assert setup_entry.state is ConfigEntryState.LOADED
+    assert setup_entry.runtime_data.coordinator is not first
+    assert aioclient_mock.mock_calls[-1][3]["Authorization"] == f"Bearer {KEY}"
