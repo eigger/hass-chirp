@@ -84,29 +84,31 @@ The integration creates only the entities the server actually reports. Disabled-
 | Load (5 min), Load (15 min) | `load_5m`, `load_15m` | measurement | Disabled |
 | CPU package power | `package_power` | power, W, measurement; when Chirp has a RAPL or hwmon CPU power source (*unknown* on its first sample) | Enabled |
 | `<label>` power | `power_source_<id>` | power, W, measurement; one per RAPL zone / hwmon power reading | Disabled |
-| `<label>` fan speed | `fan_<id>` | rpm, measurement | Enabled when the fan was spinning when first seen, otherwise disabled (unconnected fan headers report 0) |
+| `<label>` speed | `fan_<id>` | rpm, measurement | Enabled when the fan was spinning when first seen, otherwise disabled (see below) |
 | `<label>` voltage | `voltage_<id>` | voltage, V, measurement | Disabled |
 | Metrics scope | `data_scope` | `host`, `container` or `mixed`; attributes `memory_scope`, `load_scope`, `network_scope` | Diagnostic, enabled |
 
-The load sensors and CPU usage have a `cpu_count` attribute (logical CPUs in that scope). If two fans, voltages or power sources share a label, the chip name is added to the entity name.
+The load sensors and CPU usage have a `cpu_count` attribute (logical CPUs in that scope). Fan, voltage and power source names are the label from the monitoring chip followed by "speed", "voltage" or "power" (`CPU Fan speed`, `+3.3V voltage`, `psys power`); a label that already says it (`power1`, `Vcore Voltage`) is used as is, and if two readings share a label the chip name is added.
+
+**Fans that were stopped when first seen stay disabled.** Monitoring chips list every fan header, and headers with nothing connected report 0 rpm. Whether a fan sensor is enabled by default is decided once, when Home Assistant first registers it: a fan that was stopped (for example a zero-RPM GPU or case fan at idle) or reported no reading at that moment stays disabled even after it spins up. Enable it in the entity settings if you want it.
 
 **Network interface devices** (one per interface Chirp lists, named `<host name> <interface>`, model `Physical interface`, `Bond`, `Bridge`, `VLAN` or `Virtual interface`, attached to the host). Unique IDs are `<instance id>_net_<interface id>_<key>`:
 
 | Entity | Key | Unit / class | Default |
 |---|---|---|---|
 | Receive rate, Transmit rate | `rx_rate`, `tx_rate` | data rate, B/s from Chirp shown in Mbit/s, measurement; *unknown* on Chirp's first sample and after a counter reset | Enabled |
-| Data received, Data sent | `rx_total`, `tx_total` | data size (shown in GB), total increasing (since the host booted) | Diagnostic, enabled |
-| Link | `link` | connectivity binary sensor, on when the operstate is `up`; attributes `oper_state`, `kind` | Enabled |
+| Data received, Data sent | `rx_total`, `tx_total` | data size (shown in GB), total increasing (cumulative kernel counters since the interface was created) | Diagnostic, enabled |
+| Link | `link` | connectivity binary sensor, on when Chirp reports the link as up (operstate `up`, or `unknown` with carrier); attributes `oper_state`, `kind` | Enabled |
 | Link speed | `speed` | data rate, Mbit/s; *unknown* when the driver reports none (bridges, VLANs) | Diagnostic, enabled |
 | Receive errors, Transmit errors, Receive drops, Transmit drops | `rx_errors`, `tx_errors`, `rx_dropped`, `tx_dropped` | total increasing | Diagnostic, disabled |
 
-Chirp lists physical NICs, bonds, bridges and VLANs by default and hides `veth*`, `tap*`, Docker and other virtual devices; `CHIRP_NET_INCLUDE` / `CHIRP_NET_EXCLUDE` on the server change that.
+Chirp lists physical NICs, bonds, bridges and VLANs by default and hides `veth*`, `tap*`, Docker and other virtual devices; `CHIRP_NET_INCLUDE` / `CHIRP_NET_EXCLUDE` on the server change that. Each interface adds 6 entities enabled by default (rates, totals, link, link speed) and 4 disabled ones, so exclude interfaces you do not need on the server.
 
 New disks are added automatically on the next poll. A disk that Chirp has not read yet (standby or unreadable since the server started) only has a temporary `dev_<name>` ID; its entities are created after the first read, when Chirp reports the permanent ID. A disk that disappears from Chirp's response becomes unavailable; delete its device from the device page if it is gone for good. The host device cannot be deleted.
 
 ### Host metrics: availability and scope
 
-Host metrics need a Chirp server that reports them. An older server simply does not send them, and the integration then creates none of these entities (no errors). A section the server could not read at all (for example no RAPL or hwmon power source) is not created either. Every entity appears automatically once its data shows up, for example after a server update. A single value Chirp could not read is shown as *unknown*. If a whole section, an interface, a fan, a voltage or a power source disappears later, its entities become unavailable; a vanished interface device can be deleted from its device page, and orphaned fan, voltage or power entities can be removed after a reload.
+Host metrics need a Chirp server that reports them. An older server simply does not send them, and the integration then creates none of these entities (no errors). A section the server could not read at all (for example no RAPL or hwmon power source) is not created either. Every entity appears automatically once its data shows up, for example after a server update. A single value Chirp could not read is shown as *unknown*. If a whole section, an interface, a fan, a voltage or a power source disappears later, its entities become unavailable; a vanished interface or disk device can be deleted from its device page (if it comes back later, its entities are created again), and orphaned fan, voltage or power entities can be removed after a reload.
 
 **Scope (host or container).** Chirp often runs in a container (Proxmox LXC, Docker). Memory, load and network values then come either from the **host** (Chirp reads the host's `/proc` and `/sys` mounted into the container, or it is not in a container) or from the **container**'s own view: in an LXC that can be the container's limits (for example 512 MB of RAM, one CPU) and its own `eth0`. Each memory, load and network entity has a `scope` attribute (`host` or `container`), and the diagnostic **Metrics scope** sensor summarises them (`mixed` when sections differ). Entity names do not change with the scope. If it says `container` but you want host values, give Chirp the host mounts described in Chirp's deployment guide ([host metrics](https://github.com/eigger/chirp/blob/master/docs/deploy.md#host-metrics-memory-load-network)). Container-scope entities keep the same defaults as host ones, so a later switch to host scope does not leave them disabled. Power, fan and voltage readings come from the host's hardware sensors in both cases and always have `scope: host`.
 
