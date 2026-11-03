@@ -1,0 +1,49 @@
+{
+  "entity": {
+    "sensor": {
+      "fetch_errors": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "power_cycle_count": {
+        "default": "mdi:power-cycle"
+      },
+      "health": {
+        "default": "mdi:heart-pulse",
+        "state": {
+          "ok": "mdi:check-circle-outline",
+          "warning": "mdi:alert-circle-outline",
+          "failing": "mdi:close-circle-outline"
+        }
+      },
+      "reallocated_sectors": {
+        "default": "mdi:database-alert"
+      },
+      "pending_sectors": {
+        "default": "mdi:database-clock"
+      },
+      "offline_uncorrectable": {
+        "default": "mdi:database-alert"
+      },
+      "udma_crc_errors": {
+        "default": "mdi:sync-alert"
+      },
+      "wear": {
+        "default": "mdi:gauge"
+      },
+      "available_spare": {
+        "default": "mdi:gauge"
+      },
+      "media_errors": {
+        "default": "mdi:database-alert"
+      },
+      "unsafe_shutdowns": {
+        "default": "mdi:power-off"
+      }
+    },
+    "button": {
+      "refresh_smart": {
+        "default": "mdi:database-refresh"
+      }
+    }
+  }
+}

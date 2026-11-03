@@ -53,6 +53,7 @@ async def test_press_posts_refresh_and_follows_until_read_settles(
     hass, setup_entry, api_response, entity_id
 ):
     button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     stale = load_status()
     fresh = _read_at("2026-11-03T10:05:00Z")
@@ -79,6 +80,7 @@ async def test_follow_stops_at_the_attempt_limit(
 ):
     """A read that never lands (all disks in standby) polls a bounded number."""
     button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     api_response.clear_requests()
     api_response.post(REFRESH_URL, status=202, json={"queued": True})
@@ -93,6 +95,7 @@ async def test_follow_stops_when_the_server_goes_away(
 ):
     monkeypatch.setattr(coordinator_module, "UNAVAILABLE_AFTER_FAILURES", 1)
     button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     api_response.clear_requests()
     api_response.post(REFRESH_URL, status=202, json={"queued": True})
@@ -108,6 +111,7 @@ async def test_second_press_restarts_the_follow(
     """Only one follow-up runs at a time, so presses cannot pile up polls."""
     monkeypatch.setattr(coordinator_module, "REFRESH_POLL_INTERVAL", 3600)
     button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     await _press(hass, button)
     first = coordinator._follow_task

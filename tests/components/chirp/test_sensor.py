@@ -25,6 +25,7 @@ async def test_host_sensors(hass, setup_entry, entity_id, registered):
 
     errors = hass.states.get(entity_id(f"{INSTANCE_ID}_fetch_errors"))
     assert errors.state == "0"
+    assert errors.attributes["icon"] == "mdi:alert-circle-outline"
     assert (
         registered(f"{INSTANCE_ID}_fetch_errors").entity_category.value == "diagnostic"
     )
@@ -60,14 +61,20 @@ async def test_ata_hdd_sensors(hass, setup_entry, entity_id, registered):
     assert hours.attributes["device_class"] == "duration"
     assert hours.attributes["state_class"] == "total_increasing"
     assert state("power_cycle_count").state == "120"
+    assert state("power_cycle_count").attributes["icon"] == "mdi:power-cycle"
     health = state("health")
     assert health.state == "warning"
+    assert health.attributes["icon"] == "mdi:alert-circle-outline"
     assert health.attributes["reasons"] == [{"code": "reallocated_sectors", "value": 8}]
     assert health.attributes["options"] == ["ok", "warning", "failing"]
     assert state("reallocated_sectors").state == "8"
+    assert state("reallocated_sectors").attributes["icon"] == "mdi:database-alert"
     assert state("pending_sectors").state == "0"
+    assert state("pending_sectors").attributes["icon"] == "mdi:database-clock"
     assert state("offline_uncorrectable").state == "0"
+    assert state("offline_uncorrectable").attributes["icon"] == "mdi:database-alert"
     assert state("udma_crc_errors").state == "0"
+    assert state("udma_crc_errors").attributes["icon"] == "mdi:sync-alert"
     # Enabled by default, others diagnostic.
     assert registered(f"{HDD}_reallocated_sectors").entity_category is None
     assert registered(f"{HDD}_pending_sectors").entity_category is None
@@ -84,16 +91,21 @@ async def test_nvme_sensors(hass, setup_entry, entity_id, registered):
 
     assert state("temperature").state == "42"
     assert state("health").state == "ok"
+    assert state("health").attributes["icon"] == "mdi:check-circle-outline"
     assert state("health").attributes["reasons"] == []
     assert state("wear").state == "3"
+    assert state("wear").attributes["icon"] == "mdi:gauge"
     assert state("wear").attributes["unit_of_measurement"] == "%"
     assert state("available_spare").state == "100"
+    assert state("available_spare").attributes["icon"] == "mdi:gauge"
     written = state("data_written")
     assert float(written.state) == pytest.approx(63.209875968)
     assert written.attributes["unit_of_measurement"] == "TB"
     assert written.attributes["device_class"] == "data_size"
     assert state("media_errors").state == "0"
+    assert state("media_errors").attributes["icon"] == "mdi:database-alert"
     assert state("unsafe_shutdowns").state == "12"
+    assert state("unsafe_shutdowns").attributes["icon"] == "mdi:power-off"
     for key in ("media_errors", "unsafe_shutdowns"):
         assert registered(f"{NVME}_{key}").entity_category.value == "diagnostic"
     for key in ("reallocated_sectors", "pending_sectors", "udma_crc_errors"):
@@ -146,6 +158,7 @@ async def test_nvme_failing_fixture(hass, entry, aioclient_mock, entity_id):
     await hass.async_block_till_done()
     health = hass.states.get(entity_id(f"{NVME}_health"))
     assert health.state == "failing"
+    assert health.attributes["icon"] == "mdi:close-circle-outline"
     assert [r["code"] for r in health.attributes["reasons"]] == [
         "smart_failed",
         "nvme_critical_warning",
