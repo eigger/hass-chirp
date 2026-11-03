@@ -22,15 +22,11 @@ Chirp listens on port **80** by default (`CHIRP_PORT`). Its dashboard is at `htt
 
 ### 2. Find the API key
 
-The key starts with `chp_` and is stored on the Chirp host:
+1. Open the chirp dashboard (`http://<chirp host>/`). On a fresh install, create the admin account first: whoever opens the dashboard first becomes the admin, so do this right after installing chirp.
+2. Sign in and go to **Settings → API key**.
+3. Click **Copy** (or **Show** to read it), then paste the key into the chirp integration in Home Assistant together with the chirp host and port.
 
-```sh
-cat /var/lib/chirp/api-key
-# or
-node /opt/chirp/current/apps/server/dist/cli.js key show
-```
-
-For a Proxmox container, prefix the command with `pct exec <ctid> --`, for example `pct exec 105 -- cat /var/lib/chirp/api-key`. `... cli.js key rotate` creates a new key; update Home Assistant afterwards through the re-authentication form. If `CHIRP_API_KEY` is set on the server, it takes precedence over the key file.
+**Regenerate** in the same place creates a new key. The old key stops working immediately, so update the integration afterwards (Home Assistant will ask you to re-authenticate). If the key is set with `CHIRP_API_KEY` on the server, it is shown read-only and must be changed there. On the server you can also print it with `node apps/server/dist/cli.js key show` (Proxmox: `pct exec <CTID> -- node /opt/chirp/current/apps/server/dist/cli.js key show`; Docker: `docker exec chirp node apps/server/dist/cli.js key show`).
 
 ### 3. Install and add the integration
 
@@ -75,7 +71,44 @@ The integration creates only the entities the server actually reports. Disabled-
 | Data written | NVMe, TB |
 | Media errors, Unsafe shutdowns | NVMe, diagnostic |
 
+**Host metrics** (on the host device; only from Chirp servers that report them, see below):
+
+| Entity | Key (unique ID suffix) | Unit / class | Default |
+|---|---|---|---|
+| Memory used | `memory_used_percent` | %, measurement | Enabled |
+| Memory used size | `memory_used` | data size (shown in GiB), measurement | Disabled |
+| Memory total | `memory_total` | data size (GiB) | Diagnostic, disabled |
+| Swap used | `swap_used_percent` | %, measurement; only when the host has swap | Enabled |
+| CPU usage | `cpu_usage_percent` | %, measurement; *unknown* until Chirp has two samples | Enabled |
+| Load (1 min) | `load_1m` | measurement | Enabled |
+| Load (5 min), Load (15 min) | `load_5m`, `load_15m` | measurement | Disabled |
+| CPU package power | `package_power` | power, W, measurement; when Chirp has a RAPL or hwmon CPU power source (*unknown* on its first sample) | Enabled |
+| `<label>` power | `power_source_<id>` | power, W, measurement; one per RAPL zone / hwmon power reading | Disabled |
+| `<label>` fan speed | `fan_<id>` | rpm, measurement | Enabled when the fan was spinning when first seen, otherwise disabled (unconnected fan headers report 0) |
+| `<label>` voltage | `voltage_<id>` | voltage, V, measurement | Disabled |
+| Metrics scope | `data_scope` | `host`, `container` or `mixed`; attributes `memory_scope`, `load_scope`, `network_scope` | Diagnostic, enabled |
+
+The load sensors and CPU usage have a `cpu_count` attribute (logical CPUs in that scope). If two fans, voltages or power sources share a label, the chip name is added to the entity name.
+
+**Network interface devices** (one per interface Chirp lists, named `<host name> <interface>`, model `Physical interface`, `Bond`, `Bridge`, `VLAN` or `Virtual interface`, attached to the host). Unique IDs are `<instance id>_net_<interface id>_<key>`:
+
+| Entity | Key | Unit / class | Default |
+|---|---|---|---|
+| Receive rate, Transmit rate | `rx_rate`, `tx_rate` | data rate, B/s from Chirp shown in Mbit/s, measurement; *unknown* on Chirp's first sample and after a counter reset | Enabled |
+| Data received, Data sent | `rx_total`, `tx_total` | data size (shown in GB), total increasing (since the host booted) | Diagnostic, enabled |
+| Link | `link` | connectivity binary sensor, on when the operstate is `up`; attributes `oper_state`, `kind` | Enabled |
+| Link speed | `speed` | data rate, Mbit/s; *unknown* when the driver reports none (bridges, VLANs) | Diagnostic, enabled |
+| Receive errors, Transmit errors, Receive drops, Transmit drops | `rx_errors`, `tx_errors`, `rx_dropped`, `tx_dropped` | total increasing | Diagnostic, disabled |
+
+Chirp lists physical NICs, bonds, bridges and VLANs by default and hides `veth*`, `tap*`, Docker and other virtual devices; `CHIRP_NET_INCLUDE` / `CHIRP_NET_EXCLUDE` on the server change that.
+
 New disks are added automatically on the next poll. A disk that Chirp has not read yet (standby or unreadable since the server started) only has a temporary `dev_<name>` ID; its entities are created after the first read, when Chirp reports the permanent ID. A disk that disappears from Chirp's response becomes unavailable; delete its device from the device page if it is gone for good. The host device cannot be deleted.
+
+### Host metrics: availability and scope
+
+Host metrics need a Chirp server that reports them. An older server simply does not send them, and the integration then creates none of these entities (no errors). A section the server could not read at all (for example no RAPL or hwmon power source) is not created either. Every entity appears automatically once its data shows up, for example after a server update. A single value Chirp could not read is shown as *unknown*. If a whole section, an interface, a fan, a voltage or a power source disappears later, its entities become unavailable; a vanished interface device can be deleted from its device page, and orphaned fan, voltage or power entities can be removed after a reload.
+
+**Scope (host or container).** Chirp often runs in a container (Proxmox LXC, Docker). Memory, load and network values then come either from the **host** (Chirp reads the host's `/proc` and `/sys` mounted into the container, or it is not in a container) or from the **container**'s own view: in an LXC that can be the container's limits (for example 512 MB of RAM, one CPU) and its own `eth0`. Each memory, load and network entity has a `scope` attribute (`host` or `container`), and the diagnostic **Metrics scope** sensor summarises them (`mixed` when sections differ). Entity names do not change with the scope. If it says `container` but you want host values, give Chirp the host mounts described in Chirp's deployment guide ([host metrics](https://github.com/eigger/chirp/blob/master/docs/deploy.md#host-metrics-memory-load-network)). Container-scope entities keep the same defaults as host ones, so a later switch to host scope does not leave them disabled. Power, fan and voltage readings come from the host's hardware sensors in both cases and always have `scope: host`.
 
 ### Health reasons
 
@@ -110,7 +143,8 @@ actions:
 - Home Assistant polls only `GET /api/v1/status`. SMART values change on Chirp's own schedule, so a short polling interval does not give fresher SMART data.
 - When Chirp cannot be reached, entities keep their last values for up to 2 failed polls; the third failure in a row makes them unavailable until the next success. The consecutive fetch error counter stays available throughout and returns to zero after the next success. A rejected API key makes the entities unavailable at once and starts Home Assistant's re-authentication flow.
 - **Cannot connect**: check host, port and the HTTPS switch (with a self-signed certificate, turn off **Verify SSL certificate**); open `http://<host>:<port>/health` in a browser. The address field takes a host name, IPv4 or IPv6 address only, not a URL; IPv6 zone IDs (`%eth0`) are not supported.
-- **Invalid authentication**: copy the key again from `/var/lib/chirp/api-key`. A key from a different Chirp instance is rejected during re-authentication.
+- **Invalid authentication**: copy the key again from **Settings → API key** in the Chirp dashboard (it changes when someone regenerates it). A key from a different Chirp instance is rejected during re-authentication.
 - API versions: this release supports Chirp API version 1. If Chirp reports a newer version, a single warning is logged and the known fields are still used.
-- Remove API keys, host names, IP addresses and disk serial numbers from issue reports. Diagnostics redact them automatically.
+- **Memory or network values look too small** (for example 512 MB of RAM or only `eth0`): check the `scope` attribute or the **Metrics scope** sensor. `container` means Chirp sees only its container; see [Host metrics: availability and scope](#host-metrics-availability-and-scope).
+- Remove API keys, host names, IP addresses and disk serial numbers from issue reports. Diagnostics redact them automatically, as well as MAC addresses embedded in interface names (`enx…`, `wlx…`).
 - Tests use real Home Assistant with mocked HTTP responses and do not certify a live Chirp server.

@@ -1,7 +1,7 @@
 <!-- hass-standards:header:start -->
 # Chirp Home Assistant Integration (hass-chirp)
 
-Chirp 서버의 디스크 SMART 건강 상태·디스크 온도·CPU 온도를 읽기 전용으로 연결하는 Home Assistant 커스텀 통합입니다.
+Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스트 메모리·부하·네트워크·전력·팬·전압 지표를 읽기 전용으로 연결하는 Home Assistant 커스텀 통합입니다.
 
 [English](README.md) | **한국어**
 
@@ -18,14 +18,15 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크 온도·CPU 온도를 �
 
 ![Chirp](custom_components/chirp/brand/logo.png)
 
-디스크 SMART 건강 상태와 온도를 보여 주는 셀프호스팅 모니터 [Chirp](https://github.com/eigger/chirp)를 Home Assistant에 **읽기 전용**으로 연결하는 커스텀 통합입니다. Chirp의 `/api/v1/status`를 기본 60초마다 읽어 호스트 CPU 온도와 각 디스크의 온도·건강 상태·SMART 카운터를 엔티티로 제공합니다.
+디스크 SMART 건강 상태·온도와 호스트 지표를 보여 주는 셀프호스팅 모니터 [Chirp](https://github.com/eigger/chirp)를 Home Assistant에 **읽기 전용**으로 연결하는 커스텀 통합입니다. Chirp의 `/api/v1/status`를 기본 60초마다 읽어 호스트의 CPU 온도·메모리·부하·전력·팬·전압·네트워크 인터페이스와 각 디스크의 온도·건강 상태·SMART 카운터를 엔티티로 제공합니다.
 
 ## 주요 기능
 
 - 모니터링 대상 호스트 기기(CPU 온도, 부팅 시각, "디스크 문제 있음", SMART 새로고침 버튼)와 디스크별 기기
 - 디스크별 온도(대기 모드에서도 마지막 값 유지)·전원 켜짐 시간·건강 상태(`ok`/`warning`/`failing`과 사유, Chirp가 디스크를 읽기 전에는 Home Assistant의 *알 수 없음*)·SMART 문제 이진 센서
 - 프로토콜별 카운터: SATA는 재할당·대기 중 섹터, SSD/NVMe는 마모율·가용 예비 공간·누적 기록량·미디어 오류
-- 나중에 나타난 디스크는 자동 추가, 사라진 디스크는 사용 불가로 표시
+- 호스트 지표를 보고하는 Chirp 서버라면 메모리·스왑 사용률, CPU 사용률과 부하, CPU 패키지 전력, 팬 속도와 전압, 그리고 네트워크 인터페이스별 기기(수신·송신 속도, 누적량, 링크 상태와 속도). 각 값의 `scope` 속성으로 호스트 관점인지 Chirp 컨테이너 자체 관점인지 구분
+- 나중에 나타난 디스크·네트워크 인터페이스는 자동 추가, 사라진 것은 사용 불가로 표시
 - 짧은 장애 동안은 마지막 값을 유지하고, 연속 3회 조회에 실패하면 Chirp가 다시 응답할 때까지 엔티티를 사용할 수 없음으로 표시. 연속 오류 횟수 센서는 진단용으로 계속 표시
 
 ## 요구사항
@@ -48,7 +49,15 @@ Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/
 3. **설정 → 기기 및 서비스 → 통합 추가 → Chirp** 로 이동합니다.
 4. Chirp의 **주소**(IP 또는 이름), **포트**(기본 `80`), **API 키**를 입력합니다. Chirp를 HTTPS로 제공할 때만 *HTTPS 사용*을 켜고, 신뢰하는 서버의 자체 서명 인증서일 때만 *SSL 인증서 확인*을 끕니다.
 
-API 키는 `chp_`로 시작합니다. Chirp 호스트에서 `cat /var/lib/chirp/api-key`로 확인합니다(Proxmox 컨테이너 안이라면 `pct exec <ctid> -- cat /var/lib/chirp/api-key`). [자세한 안내](docs/ko/user-guide.md#설치)
+### API 키 확인 방법
+
+1. chirp 대시보드(`http://<chirp 주소>/`)를 엽니다. 새로 설치했다면 먼저 관리자 계정을 만드세요. 대시보드를 먼저 연 사람이 관리자가 되므로 chirp 설치 직후 바로 만들어야 합니다.
+2. 로그인한 뒤 **설정 → API 키**로 갑니다.
+3. **복사**(또는 **보기**로 확인)를 누르고, Home Assistant의 chirp 통합에 chirp 호스트·포트와 함께 붙여 넣습니다.
+
+같은 화면의 **재발급**은 새 키를 만듭니다. 이전 키는 즉시 동작하지 않으므로 통합에도 새 키를 넣어야 합니다(Home Assistant가 재인증을 요청합니다). 서버에서 `CHIRP_API_KEY`로 키를 지정했다면 읽기 전용으로 보이며 서버 설정에서 바꿔야 합니다. 서버에서 `node apps/server/dist/cli.js key show`로도 확인할 수 있습니다(Proxmox: `pct exec <CTID> -- node /opt/chirp/current/apps/server/dist/cli.js key show`, Docker: `docker exec chirp node apps/server/dist/cli.js key show`).
+
+[자세한 안내](docs/ko/user-guide.md#설치)
 
 ## 사용 방법
 
@@ -64,7 +73,7 @@ target:
 
 | 문서 | 내용 |
 |---|---|
-| [사용자 가이드](docs/ko/user-guide.md) | 설정과 API 키, 엔티티·속성, 건강 상태 사유, 문제 해결 |
+| [사용자 가이드](docs/ko/user-guide.md) | 설정과 API 키, 엔티티·속성, 호스트·컨테이너 관점, 건강 상태 사유, 문제 해결 |
 | [개발과 테스트](docs/ko/development.md) | 실제 HA 테스트, 최소/최신 환경, 의존성과 명령 |
 | [적용 기준](STANDARDS.md) · [체크리스트](ADOPTION_CHECKLIST.md) | 공통 규칙과 검증 기록 |
 

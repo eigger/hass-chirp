@@ -26,7 +26,7 @@ hass-chirp는 Chirp 서버(eigger/chirp)의 디스크 SMART·CPU 온도 모니�
 
 ## 검증 환경과 경계
 
-실제 HA loader·config entry manager·플랫폼·flow·service·registry를 실행하고 HTTP 응답만 플러그인의 `aioclient_mock`으로 대체합니다. HA 가짜 모듈과 FakeHass는 사용하지 않습니다. API 계약은 Chirp 저장소의 zod 스키마(`packages/shared/src/schema.ts`)와 샘플이며 `tests/components/chirp/fixtures/status.json`은 그 샘플의 원본 복사본입니다. 다른 `status_*.json`은 변형입니다.
+실제 HA loader·config entry manager·플랫폼·flow·service·registry를 실행하고 HTTP 응답만 플러그인의 `aioclient_mock`으로 대체합니다. HA 가짜 모듈과 FakeHass는 사용하지 않습니다. API 계약은 Chirp 저장소의 zod 스키마(`packages/shared/src/schema.ts`)와 샘플이며 `tests/components/chirp/fixtures/status.json`은 그 샘플(`status.sample.json`)의 원본 복사본이고, `status_container_scope.json`·`status_null_sections.json`·`status_legacy.json`도 Chirp의 `status.container-scope.json`·`status.null-sections.json`·`status.legacy.json` 원본 복사본입니다. 나머지 `status_*.json`은 새 샘플 기반 변형입니다.
 
 `test_supported_environment.py`는 최소 테스트 HA가 `hacs.json`의 지원 하한과 일치하고 현재 테스트 HA가 그 하한 이상인지 확인합니다. 최신 환경만 갱신해도 컴포넌트 지원 최소를 올리지 않습니다.
 

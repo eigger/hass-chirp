@@ -17,4 +17,4 @@ python3.14 -m venv .venv
 
 ## 도메인과 API 계약
 
-통합 도메인은 `chirp`입니다(경로 `custom_components/chirp/`, 테스트 `tests/components/chirp/`). API 계약은 Chirp 저장소의 zod 스키마(`packages/shared/src/schema.ts`)이며, `tests/components/chirp/fixtures/status.json`은 그 샘플(`status.sample.json`)의 원본 복사본이고 다른 `status_*.json` fixture는 이를 변형한 것입니다(NVMe 위험, 새 SATA SSD, 대기 모드, 사라진 디스크). 브랜드 이미지는 `python scripts/generate_brand.py`로 재생성합니다(`custom_components/chirp/brand/README.md` 참고).
+통합 도메인은 `chirp`입니다(경로 `custom_components/chirp/`, 테스트 `tests/components/chirp/`). API 계약은 Chirp 저장소의 zod 스키마(`packages/shared/src/schema.ts`)이며, `tests/components/chirp/fixtures/status.json`은 그 샘플(`status.sample.json`)의 원본 복사본이고, `status_container_scope.json`·`status_null_sections.json`·`status_legacy.json`은 `status.container-scope.json`·`status.null-sections.json`·`status.legacy.json`의 원본 복사본입니다(컨테이너 관점 호스트 지표, 모든 지표 섹션 `null`, 호스트 지표가 없는 이전 서버). 다른 `status_*.json` fixture는 샘플을 변형한 것입니다(NVMe 위험, 새 SATA SSD, 대기 모드, 사라진 디스크). 브랜드 이미지는 `python scripts/generate_brand.py`로 재생성합니다(`custom_components/chirp/brand/README.md` 참고).
