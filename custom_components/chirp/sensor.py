@@ -26,7 +26,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from . import ChirpConfigEntry
-from .const import HEALTH_STATES
+from .const import HEALTH_FAILING, HEALTH_OK, HEALTH_STATES, HEALTH_WARNING
 from .coordinator import ChirpCoordinator
 from .entity import ChirpDiskEntity, ChirpEntity, is_provisional_disk
 
@@ -79,6 +79,7 @@ def _boot_time(status: dict[str, Any]) -> datetime | None:
 
 
 HOST_SENSORS: tuple[ChirpSensorDescription, ...] = (
+    # CPU package temperature / CPU 패키지 온도
     ChirpSensorDescription(
         key="cpu_temperature",
         translation_key="cpu_temperature",
@@ -89,6 +90,7 @@ HOST_SENSORS: tuple[ChirpSensorDescription, ...] = (
         value_fn=lambda status: _number(_cpu(status).get("packageTemp")),
         exists_fn=lambda status: _number(_cpu(status).get("packageTemp")) is not None,
     ),
+    # CPU maximum temperature / CPU 최고 온도
     ChirpSensorDescription(
         key="cpu_max_temperature",
         translation_key="cpu_max_temperature",
@@ -100,6 +102,7 @@ HOST_SENSORS: tuple[ChirpSensorDescription, ...] = (
         value_fn=lambda status: _number(_cpu(status).get("maxTemp")),
         exists_fn=lambda status: _number(_cpu(status).get("maxTemp")) is not None,
     ),
+    # Host boot time / 호스트 부팅 시각
     ChirpSensorDescription(
         key="boot_time",
         translation_key="boot_time",
@@ -232,10 +235,12 @@ def _count_description(
     exists: Callable[[dict[str, Any]], bool],
     *,
     diagnostic: bool,
+    icon: str | None = None,
 ) -> ChirpDiskSensorDescription:
     return ChirpDiskSensorDescription(
         key=key,
         translation_key=key,
+        icon=icon,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC if diagnostic else None,
         value_fn=lambda disk: getter(disk, field),
@@ -244,6 +249,7 @@ def _count_description(
 
 
 DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
+    # Disk temperature / 디스크 온도
     ChirpDiskSensorDescription(
         key="temperature",
         translation_key="disk_temperature",
@@ -253,6 +259,7 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         value_fn=lambda disk: _number(disk.get("temperature")),
         attrs_fn=lambda disk: {"standby": bool(disk.get("standby"))},
     ),
+    # Power-on hours / 전원 켜짐 시간 (누적 가동 시간)
     ChirpDiskSensorDescription(
         key="power_on_hours",
         translation_key="power_on_hours",
@@ -261,53 +268,82 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda disk: _number(disk.get("powerOnHours")),
     ),
+    # Power cycle count / 전원 켜짐 횟수 (전원 인가 주기)
     ChirpDiskSensorDescription(
         key="power_cycle_count",
         translation_key="power_cycle_count",
+        icon="mdi:power-cycle",
         entity_category=EntityCategory.DIAGNOSTIC,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda disk: _number(disk.get("powerCycleCount")),
     ),
+    # SMART health verdict / 디스크 건강 상태 (ok, warning, failing)
     ChirpDiskSensorDescription(
         key="health",
         translation_key="health",
+        icon="mdi:heart-pulse",
         device_class=SensorDeviceClass.ENUM,
         options=HEALTH_STATES,
         value_fn=_health_status,
         attrs_fn=lambda disk: {"reasons": _health_reasons(disk)},
     ),
+    # Reallocated sectors count / 재할당된 섹터 수
     _count_description(
-        "reallocated_sectors", "reallocatedSectors", _ata, _has_ata, diagnostic=False
+        "reallocated_sectors",
+        "reallocatedSectors",
+        _ata,
+        _has_ata,
+        diagnostic=False,
+        icon="mdi:database-alert",
     ),
+    # Current pending sectors count / 보류 중인(대기 중) 섹터 수
     _count_description(
-        "pending_sectors", "pendingSectors", _ata, _has_ata, diagnostic=False
+        "pending_sectors",
+        "pendingSectors",
+        _ata,
+        _has_ata,
+        diagnostic=False,
+        icon="mdi:database-clock",
     ),
+    # Offline uncorrectable sectors count / 오프라인 복구 불가 섹터 수
     _count_description(
         "offline_uncorrectable",
         "offlineUncorrectable",
         _ata,
         _has_ata,
         diagnostic=True,
+        icon="mdi:database-alert",
     ),
+    # UDMA CRC error count / UDMA CRC 전송 오류 수
     _count_description(
-        "udma_crc_errors", "udmaCrcErrors", _ata, _has_ata, diagnostic=True
+        "udma_crc_errors",
+        "udmaCrcErrors",
+        _ata,
+        _has_ata,
+        diagnostic=True,
+        icon="mdi:sync-alert",
     ),
+    # SSD wear level percentage / SSD 수명 마모율(%)
     ChirpDiskSensorDescription(
         key="wear",
         translation_key="wear",
+        icon="mdi:gauge",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_wear,
         exists_fn=_has_wear,
     ),
+    # NVMe available spare capacity / NVMe 가용 예비 공간(%)
     ChirpDiskSensorDescription(
         key="available_spare",
         translation_key="available_spare",
+        icon="mdi:gauge",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda disk: _nvme(disk, "availableSpare"),
         exists_fn=_has_nvme,
     ),
+    # Total data written in TB / 누적 데이터 기록량(TB)
     ChirpDiskSensorDescription(
         key="data_written",
         translation_key="data_written",
@@ -318,11 +354,23 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         value_fn=_data_written_tb,
         exists_fn=_has_nvme,
     ),
+    # Media and integrity errors count / 미디어 및 데이터 무결성 오류 수
     _count_description(
-        "media_errors", "mediaErrors", _nvme, _has_nvme, diagnostic=True
+        "media_errors",
+        "mediaErrors",
+        _nvme,
+        _has_nvme,
+        diagnostic=True,
+        icon="mdi:database-alert",
     ),
+    # Unsafe shutdowns count / 비정상 종료 횟수
     _count_description(
-        "unsafe_shutdowns", "unsafeShutdowns", _nvme, _has_nvme, diagnostic=True
+        "unsafe_shutdowns",
+        "unsafeShutdowns",
+        _nvme,
+        _has_nvme,
+        diagnostic=True,
+        icon="mdi:power-off",
     ),
 )
 
@@ -393,6 +441,7 @@ class ChirpHostSensor(ChirpEntity, SensorEntity):
         return value
 
 
+# Consecutive failed polls count / 연속 조회(수신) 실패 횟수
 class ChirpFetchErrorSensor(ChirpEntity, SensorEntity):
     """Number of consecutive failed polls; attributes describe the last error."""
 
@@ -403,6 +452,7 @@ class ChirpFetchErrorSensor(ChirpEntity, SensorEntity):
             SensorEntityDescription(
                 key="fetch_errors",
                 translation_key="fetch_errors",
+                icon="mdi:alert-circle-outline",
                 entity_category=EntityCategory.DIAGNOSTIC,
                 state_class=SensorStateClass.MEASUREMENT,
             ),
@@ -432,6 +482,20 @@ class ChirpDiskSensor(ChirpDiskEntity, SensorEntity):
     """A sensor describing one disk."""
 
     entity_description: ChirpDiskSensorDescription
+
+    @property
+    def icon(self) -> str | None:
+        """Return dynamic icon for disk health based on state."""
+        if self.entity_description.key == "health":
+            status = self.native_value
+            if status == HEALTH_OK:
+                return "mdi:check-circle-outline"
+            if status == HEALTH_WARNING:
+                return "mdi:alert-circle-outline"
+            if status == HEALTH_FAILING:
+                return "mdi:close-circle-outline"
+            return "mdi:heart-pulse"
+        return super().icon
 
     @property
     def native_value(self) -> Any:

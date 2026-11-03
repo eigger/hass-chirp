@@ -33,7 +33,9 @@ class ChirpRefreshButton(ChirpEntity, ButtonEntity):
             coordinator,
             entry,
             ButtonEntityDescription(
-                key="refresh_smart", translation_key="refresh_smart"
+                key="refresh_smart",
+                translation_key="refresh_smart",
+                icon="mdi:database-refresh",
             ),
         )
 
