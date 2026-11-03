@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Chirp",
-        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_ and is stored on the Chirp host in /var/lib/chirp/api-key.",
+        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_ and is shown in the Chirp dashboard under Settings → API key.",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -14,7 +14,7 @@
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
           "port": "Chirp listens on port 80 by default.",
-          "api_key": "The Chirp API key (starts with chp_). Show it on the Chirp host with: cat /var/lib/chirp/api-key",
+          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key.",
           "ssl": "Enable only when Chirp is served over HTTPS, for example behind a reverse proxy.",
           "verify_ssl": "Turn off only for a self-signed certificate on a server you trust. Applies only with HTTPS."
         }
@@ -26,7 +26,7 @@
           "api_key": "API key"
         },
         "data_description": {
-          "api_key": "The Chirp API key (starts with chp_). Show it on the Chirp host with: cat /var/lib/chirp/api-key"
+          "api_key": "The Chirp API key (starts with chp_). Find it in the Chirp dashboard under Settings → API key."
         }
       },
       "reconfigure": {
@@ -144,6 +144,301 @@
       },
       "unsafe_shutdowns": {
         "name": "Unsafe shutdowns"
+      },
+      "data_scope": {
+        "name": "Metrics scope",
+        "state": {
+          "host": "Host",
+          "container": "Container",
+          "mixed": "Mixed"
+        },
+        "state_attributes": {
+          "memory_scope": {
+            "name": "Memory scope"
+          },
+          "load_scope": {
+            "name": "Load scope"
+          },
+          "network_scope": {
+            "name": "Network scope"
+          }
+        }
+      },
+      "memory_used_percent": {
+        "name": "Memory used",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "memory_used": {
+        "name": "Memory used size",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "memory_total": {
+        "name": "Memory total",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "swap_used_percent": {
+        "name": "Swap used",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "cpu_usage_percent": {
+        "name": "CPU usage",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "cpu_count": {
+            "name": "CPU count"
+          }
+        }
+      },
+      "load_1m": {
+        "name": "Load (1 min)",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "cpu_count": {
+            "name": "CPU count"
+          }
+        }
+      },
+      "load_5m": {
+        "name": "Load (5 min)",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "cpu_count": {
+            "name": "CPU count"
+          }
+        }
+      },
+      "load_15m": {
+        "name": "Load (15 min)",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "cpu_count": {
+            "name": "CPU count"
+          }
+        }
+      },
+      "package_power": {
+        "name": "CPU package power",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "source": {
+            "name": "Source"
+          }
+        }
+      },
+      "power_source": {
+        "name": "{label} power",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "chip": {
+            "name": "Chip"
+          }
+        }
+      },
+      "fan": {
+        "name": "{label} fan speed",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "chip": {
+            "name": "Chip"
+          }
+        }
+      },
+      "voltage": {
+        "name": "{label} voltage",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "chip": {
+            "name": "Chip"
+          }
+        }
+      },
+      "rx_rate": {
+        "name": "Receive rate",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "tx_rate": {
+        "name": "Transmit rate",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "rx_total": {
+        "name": "Data received",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "tx_total": {
+        "name": "Data sent",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "link_speed": {
+        "name": "Link speed",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "rx_errors": {
+        "name": "Receive errors",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "tx_errors": {
+        "name": "Transmit errors",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "rx_dropped": {
+        "name": "Receive drops",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
+      },
+      "tx_dropped": {
+        "name": "Transmit drops",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          }
+        }
       }
     },
     "binary_sensor": {
@@ -158,6 +453,31 @@
           },
           "smart_passed": {
             "name": "SMART passed"
+          }
+        }
+      },
+      "link": {
+        "name": "Link",
+        "state_attributes": {
+          "scope": {
+            "name": "Scope",
+            "state": {
+              "host": "Host",
+              "container": "Container"
+            }
+          },
+          "oper_state": {
+            "name": "Operational state"
+          },
+          "kind": {
+            "name": "Kind",
+            "state": {
+              "physical": "Physical",
+              "bridge": "Bridge",
+              "bond": "Bond",
+              "vlan": "VLAN",
+              "virtual": "Virtual"
+            }
           }
         }
       }

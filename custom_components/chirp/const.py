@@ -35,3 +35,11 @@ UNAVAILABLE_AFTER_FAILURES = 3
 # disks' lastReadAt values settle, at most this many times.
 REFRESH_POLL_INTERVAL = 5.0
 REFRESH_POLL_MAX_ATTEMPTS = 6
+
+# Where memory, load and network values come from (the section's ``scope``).
+# Power, fan and voltage readings always come from the host's sensors.
+SCOPE_HOST = "host"
+SCOPE_CONTAINER = "container"
+SCOPE_MIXED = "mixed"
+DATA_SCOPES = [SCOPE_HOST, SCOPE_CONTAINER, SCOPE_MIXED]
+SCOPED_SECTIONS = ("memory", "load", "network")

@@ -1,4 +1,4 @@
-"""Home Assistant integration for the Chirp disk and CPU monitor."""
+"""Home Assistant integration for the Chirp disk and host monitor."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import ChirpCoordinator, scan_interval_from_options
-from .entity import host_device_info
+from .entity import NET_PREFIX, host_device_info
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
@@ -78,7 +78,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: ChirpConfigEntry) -
 async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ChirpConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
-    """Allow deleting only disk devices that are gone from the server."""
+    """Allow deleting only disk and interface devices gone from the server."""
     coordinator = entry.runtime_data.coordinator
     instance_id = coordinator.instance_id
     prefix = f"{instance_id}_"
@@ -87,5 +87,13 @@ async def async_remove_config_entry_device(
             continue
         if identifier == instance_id or not identifier.startswith(prefix):
             return False
-        return coordinator.get_disk(identifier[len(prefix) :]) is None
+        child = identifier[len(prefix) :]
+        if (
+            child.startswith(NET_PREFIX)
+            and coordinator.get_interface(child[len(NET_PREFIX) :]) is not None
+        ):
+            return False
+        # Disk IDs are model+serial slugs too, so a "net_" identifier is only
+        # removable when no disk of that ID is listed either.
+        return coordinator.get_disk(child) is None
     return False

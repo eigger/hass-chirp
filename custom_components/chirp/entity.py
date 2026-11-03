@@ -76,6 +76,55 @@ def disk_device_info(
         serial_number=disk.get("serial"),
         sw_version=disk.get("firmware"),
     )
+    return _via_host(hass, entry, instance_id, info)
+
+
+_INTERFACE_MODELS = {
+    "physical": "Physical interface",
+    "bridge": "Bridge",
+    "bond": "Bond",
+    "vlan": "VLAN",
+    "virtual": "Virtual interface",
+}
+
+
+NET_PREFIX = "net_"
+
+
+def interface_device_identifier(instance_id: str, interface_id: str) -> str:
+    """Return the device identifier of one network interface."""
+    return f"{instance_id}_{NET_PREFIX}{interface_id}"
+
+
+def interface_device_info(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    status: dict[str, Any],
+    interface: dict[str, Any],
+) -> DeviceInfo:
+    """Build the DeviceInfo of one network interface, attached to the host.
+
+    The name carries the host name so that ``eno1`` of two Chirp hosts does not
+    end up with the same entity IDs.
+    """
+    instance = status["instance"]
+    instance_id = str(instance["id"])
+    hostname = str(instance.get("hostname") or "Chirp")
+    label = interface.get("name") or interface["id"]
+    info = DeviceInfo(
+        identifiers={
+            (DOMAIN, interface_device_identifier(instance_id, interface["id"]))
+        },
+        name=f"{hostname} {label}",
+        model=_INTERFACE_MODELS.get(str(interface.get("kind")), "Network interface"),
+    )
+    return _via_host(hass, entry, instance_id, info)
+
+
+def _via_host(
+    hass: HomeAssistant, entry: ConfigEntry, instance_id: str, info: DeviceInfo
+) -> DeviceInfo:
+    """Attach a child device (disk, network interface) to the host device."""
     if not _USES_VIA_DEVICE_ID:
         info["via_device"] = (DOMAIN, instance_id)  # type: ignore[typeddict-unknown-key]
         return info
@@ -141,3 +190,47 @@ class ChirpDiskEntity(CoordinatorEntity[ChirpCoordinator]):
     def available(self) -> bool:
         """Disks missing from the latest response become unavailable."""
         return super().available and self.disk is not None
+
+
+class ChirpInterfaceEntity(CoordinatorEntity[ChirpCoordinator]):
+    """Base class for entities that belong to one network interface."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: ChirpCoordinator,
+        entry: ConfigEntry,
+        description: EntityDescription,
+        interface: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._entry = entry
+        self._instance_id = coordinator.instance_id
+        self._interface_id: str = interface["id"]
+        self._attr_unique_id = (
+            f"{interface_device_identifier(self._instance_id, self._interface_id)}"
+            f"_{description.key}"
+        )
+        self._attr_device_info = interface_device_info(
+            coordinator.hass, entry, coordinator.data, interface
+        )
+
+    @property
+    def interface(self) -> dict[str, Any] | None:
+        """Return this interface's latest data, or None when it vanished."""
+        return self.coordinator.get_interface(self._interface_id)
+
+    @property
+    def available(self) -> bool:
+        """Interfaces missing from the latest response become unavailable."""
+        return super().available and self.interface is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return whether the values are the host's or the container's."""
+        network = self.coordinator.data.get("network")
+        if self.interface is None or not isinstance(network, dict):
+            return None
+        return {"scope": network.get("scope")}

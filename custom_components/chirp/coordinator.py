@@ -40,6 +40,27 @@ def scan_interval_from_options(options: dict[str, Any]) -> timedelta:
     return timedelta(seconds=max(MIN_SCAN_INTERVAL, min(MAX_SCAN_INTERVAL, seconds)))
 
 
+def network_interfaces(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the usable network interfaces of a snapshot (none when absent)."""
+    network = status.get("network")
+    interfaces = network.get("interfaces") if isinstance(network, dict) else None
+    return list_with_ids(interfaces)
+
+
+def list_with_ids(items: Any) -> list[dict[str, Any]]:
+    """Return the objects of a list that carry a non-empty string ``id``."""
+    return [
+        item
+        for item in (items if isinstance(items, list) else [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]
+    ]
+
+
+def find_by_id(items: list[dict[str, Any]], item_id: str) -> dict[str, Any] | None:
+    """Return the item with ``item_id`` from a list of objects, or None."""
+    return next((item for item in items if item["id"] == item_id), None)
+
+
 class ChirpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch ``/api/v1/status``; ride out brief outages with the last snapshot.
 
@@ -76,6 +97,19 @@ class ChirpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if disk.get("id") == disk_id:
                 return disk
         return None
+
+    def section(self, name: str) -> dict[str, Any] | None:
+        """Return a host metric section (``memory``, ``load`` ...) or None.
+
+        Older Chirp servers do not send these sections at all and newer ones
+        send ``null`` when a section could not be read; both return None.
+        """
+        value = (self.data or {}).get(name)
+        return value if isinstance(value, dict) else None
+
+    def get_interface(self, interface_id: str) -> dict[str, Any] | None:
+        """Return a network interface from the latest snapshot, or None."""
+        return find_by_id(network_interfaces(self.data or {}), interface_id)
 
     def disk_read_marks(self) -> dict[str, Any]:
         """Return each disk's ``lastReadAt`` to detect a finished SMART read."""
