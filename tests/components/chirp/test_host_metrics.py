@@ -693,3 +693,37 @@ async def test_repeated_item_ids_use_the_first_item(
     await hass.async_block_till_done()
     fan = hass.states.get(entity_id(f"{INSTANCE_ID}_fan_nct6798_cpu_fan"))
     assert fan.state == "1180"
+    # A repeated ID is not a second reading with the same label: no chip prefix.
+    assert fan.attributes["friendly_name"] == "pve CPU Fan speed"
+
+
+async def test_allowed_but_not_performed_removal_keeps_entities(
+    hass, entry, aioclient_mock, entity_id, registered, device_for, caplog
+):
+    """Removal allowed (True) but the device stays: no duplicate entities."""
+    await _setup(hass, entry, aioclient_mock, "status.json")
+    payload = load_status()
+    payload["network"]["interfaces"] = [
+        iface for iface in payload["network"]["interfaces"] if iface["id"] != "enp3s0"
+    ]
+    await _refresh(hass, entry, aioclient_mock, payload)
+    enp = device_for(entry, f"{NET_DEVICE}enp3s0")
+    assert await async_remove_config_entry_device(hass, entry, enp)
+    # Home Assistant does not remove the device after all; the interface returns.
+    await _refresh(hass, entry, aioclient_mock, load_status())
+    assert "does not generate unique IDs" not in caplog.text
+    assert hass.states.get(entity_id(f"{NET}_enp3s0_rx_rate")).state == "0.0"
+    assert (
+        hass.states.get(entity_id(f"{NET}_enp3s0_link", "binary_sensor")).state == "off"
+    )
+    assert registered(f"{NET}_enp3s0_rx_rate").device_id == enp.id
+
+    # Removing it later for real still brings the entities back on return.
+    await _refresh(hass, entry, aioclient_mock, payload)
+    assert await async_remove_config_entry_device(hass, entry, enp)
+    dr.async_get(hass).async_remove_device(enp.id)
+    await hass.async_block_till_done()
+    assert registered(f"{NET}_enp3s0_rx_rate") is None
+    await _refresh(hass, entry, aioclient_mock, load_status())
+    assert hass.states.get(entity_id(f"{NET}_enp3s0_rx_rate")).state == "0.0"
+    assert "does not generate unique IDs" not in caplog.text

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -39,6 +40,9 @@ class ChirpRuntimeData:
     forget_device_callbacks: list[Callable[[str, str], None]] = field(
         default_factory=list
     )
+    # Devices the user asked to delete, by device ID: (kind, disk/interface ID).
+    # The unique IDs are forgotten only once the registry really removed them.
+    pending_device_removals: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
 ChirpConfigEntry = ConfigEntry[ChirpRuntimeData]
@@ -65,6 +69,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> boo
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(
+        hass.bus.async_listen(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            partial(_async_device_registry_updated, entry),
+        )
+    )
     if not hasattr(config_entries, "OptionsFlowWithReload"):
         entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -80,6 +90,27 @@ async def _async_update_listener(hass: HomeAssistant, entry: ChirpConfigEntry) -
     coordinator = entry.runtime_data.coordinator
     if scan_interval_from_options(entry.options) != coordinator.update_interval:
         await hass.config_entries.async_reload(entry.entry_id)
+
+
+@callback
+def _async_device_registry_updated(
+    entry: ChirpConfigEntry, event: Event[dr.EventDeviceRegistryUpdatedData]
+) -> None:
+    """Forget the unique IDs of a disk or interface device once it is removed.
+
+    ``async_remove_config_entry_device`` only allows the removal; Home
+    Assistant may still not remove the device. Forgetting the IDs earlier
+    would re-add entities that are still registered when the item returns.
+    """
+    if event.data["action"] != "remove":
+        return
+    removal = entry.runtime_data.pending_device_removals.pop(
+        event.data["device_id"], None
+    )
+    if removal is None:
+        return
+    for forget in entry.runtime_data.forget_device_callbacks:
+        forget(*removal)
 
 
 async def async_remove_config_entry_device(
@@ -106,7 +137,6 @@ async def async_remove_config_entry_device(
             return False
         if present:
             return False
-        for forget in runtime_data.forget_device_callbacks:
-            forget(kind, child)
+        runtime_data.pending_device_removals[device_entry.id] = (kind, child)
         return True
     return False

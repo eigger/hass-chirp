@@ -413,11 +413,16 @@ METRIC_SENSORS: tuple[ChirpSensorDescription, ...] = (
 
 
 def _labels(items: list[dict[str, Any]]) -> dict[str, str]:
-    """Return a display label per item ID; repeated labels get the chip name."""
-    counts: dict[str, int] = {}
+    """Return a display label per item ID; repeated labels get the chip name.
+
+    Each distinct ID counts once, so an item the server repeats does not look
+    like two readings sharing a label.
+    """
+    ids_per_label: dict[str, set[str]] = {}
     for item in items:
         label = str(item.get("label") or item["id"])
-        counts[label] = counts.get(label, 0) + 1
+        ids_per_label.setdefault(label, set()).add(item["id"])
+    counts = {label: len(ids) for label, ids in ids_per_label.items()}
     result: dict[str, str] = {}
     for item in items:
         label = str(item.get("label") or item["id"])
@@ -434,7 +439,9 @@ class ChirpItemSensorDescription(SensorEntityDescription):
     field: str
     item_id: str = ""
     # Labels that already contain one of these words use the bare label as the
-    # name ("PPT power" is fine, "power1 power" is not).
+    # name ("PPT power" is fine, "power1 power" is not). The words are English
+    # because hwmon/RAPL labels are; the Korean name then also shows the bare
+    # label ("power1" rather than "power1 전력"), which is accepted.
     label_words: tuple[str, ...] = ()
     placeholders: dict[str, str] | None = None
 
