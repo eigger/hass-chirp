@@ -303,7 +303,7 @@
         }
       },
       "fan": {
-        "name": "{label} 팬 속도",
+        "name": "{label} 속도",
         "state_attributes": {
           "scope": {
             "name": "관점",
@@ -319,6 +319,21 @@
       },
       "voltage": {
         "name": "{label} 전압",
+        "state_attributes": {
+          "scope": {
+            "name": "관점",
+            "state": {
+              "host": "호스트",
+              "container": "컨테이너"
+            }
+          },
+          "chip": {
+            "name": "칩"
+          }
+        }
+      },
+      "labeled_reading": {
+        "name": "{label}",
         "state_attributes": {
           "scope": {
             "name": "관점",

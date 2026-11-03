@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -88,12 +89,29 @@ _INTERFACE_MODELS = {
 }
 
 
-NET_PREFIX = "net_"
+# Disk devices are ``<instance id>_<disk id>``. Interface devices use a ``:``
+# separator instead, so no disk ID (whatever its characters) can produce the
+# identifier of an interface device or the other way round.
+INTERFACE_DEVICE_INFIX = ":net:"
 
 
 def interface_device_identifier(instance_id: str, interface_id: str) -> str:
     """Return the device identifier of one network interface."""
-    return f"{instance_id}_{NET_PREFIX}{interface_id}"
+    return f"{instance_id}{INTERFACE_DEVICE_INFIX}{interface_id}"
+
+
+def disk_unique_id(instance_id: str, disk_id: str, key: str) -> str:
+    """Return the unique ID of one disk entity."""
+    return f"{instance_id}_{disk_id}_{key}"
+
+
+def interface_unique_id(instance_id: str, interface_id: str, key: str) -> str:
+    """Return the unique ID of one network interface entity.
+
+    Interface keys (``rx_rate``, ``link`` ...) never end a disk key, so these
+    cannot equal a disk entity's ``<instance id>_<disk id>_<key>``.
+    """
+    return f"{instance_id}_net_{interface_id}_{key}"
 
 
 def interface_device_info(
@@ -133,6 +151,38 @@ def _via_host(
             info["via_device_id"] = device.id  # type: ignore[typeddict-unknown-key]
             break
     return info
+
+
+def register_forget_device(
+    entry: ConfigEntry,
+    known: set[str],
+    disk_keys: Iterable[str],
+    interface_keys: Iterable[str],
+) -> None:
+    """Forget a platform's unique IDs of a disk or interface device on removal.
+
+    Platforms remember the unique IDs they created so each entity is added
+    once. When the user deletes a vanished disk or interface device, Home
+    Assistant removes its entities from the registry; dropping their IDs here
+    lets them be created again if that disk or interface comes back.
+    """
+    disk_keys = tuple(disk_keys)
+    interface_keys = tuple(interface_keys)
+    instance_id = entry.runtime_data.coordinator.instance_id
+
+    def forget(kind: str, child_id: str) -> None:
+        if kind == "disk":
+            ids = {disk_unique_id(instance_id, child_id, key) for key in disk_keys}
+        else:
+            ids = {
+                interface_unique_id(instance_id, child_id, key)
+                for key in interface_keys
+            }
+        known.difference_update(ids)
+
+    callbacks = entry.runtime_data.forget_device_callbacks
+    callbacks.append(forget)
+    entry.async_on_unload(lambda: callbacks.remove(forget))
 
 
 class ChirpEntity(CoordinatorEntity[ChirpCoordinator]):
@@ -176,7 +226,9 @@ class ChirpDiskEntity(CoordinatorEntity[ChirpCoordinator]):
         self._entry = entry
         self._instance_id = coordinator.instance_id
         self._disk_id: str = disk["id"]
-        self._attr_unique_id = f"{self._instance_id}_{self._disk_id}_{description.key}"
+        self._attr_unique_id = disk_unique_id(
+            self._instance_id, self._disk_id, description.key
+        )
         self._attr_device_info = disk_device_info(
             coordinator.hass, entry, self._instance_id, disk
         )
@@ -209,9 +261,8 @@ class ChirpInterfaceEntity(CoordinatorEntity[ChirpCoordinator]):
         self._entry = entry
         self._instance_id = coordinator.instance_id
         self._interface_id: str = interface["id"]
-        self._attr_unique_id = (
-            f"{interface_device_identifier(self._instance_id, self._interface_id)}"
-            f"_{description.key}"
+        self._attr_unique_id = interface_unique_id(
+            self._instance_id, self._interface_id, description.key
         )
         self._attr_device_info = interface_device_info(
             coordinator.hass, entry, coordinator.data, interface

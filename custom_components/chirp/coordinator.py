@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 
@@ -56,9 +57,29 @@ def list_with_ids(items: Any) -> list[dict[str, Any]]:
     ]
 
 
-def find_by_id(items: list[dict[str, Any]], item_id: str) -> dict[str, Any] | None:
-    """Return the item with ``item_id`` from a list of objects, or None."""
-    return next((item for item in items if item["id"] == item_id), None)
+def power_sources(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the power sources of a snapshot (none when absent)."""
+    power = status.get("power")
+    return list_with_ids(power.get("sources") if isinstance(power, dict) else None)
+
+
+def fans(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the fans of a snapshot (none when absent)."""
+    return list_with_ids(status.get("fans"))
+
+
+def voltages(status: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the voltage readings of a snapshot (none when absent)."""
+    return list_with_ids(status.get("voltages"))
+
+
+# Lists of a snapshot whose items are looked up by their ``id``.
+COLLECTIONS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
+    "interfaces": network_interfaces,
+    "power_sources": power_sources,
+    "fans": fans,
+    "voltages": voltages,
+}
 
 
 class ChirpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -85,6 +106,8 @@ class ChirpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.last_error: str | None = None
         self.last_error_at: str | None = None
         self.last_success_at: str | None = None
+        self._index_source: dict[str, Any] | None = None
+        self._index: dict[str, dict[str, dict[str, Any]]] = {}
 
     @property
     def instance_id(self) -> str:
@@ -98,18 +121,27 @@ class ChirpCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return disk
         return None
 
-    def section(self, name: str) -> dict[str, Any] | None:
-        """Return a host metric section (``memory``, ``load`` ...) or None.
+    def get_item(self, collection: str, item_id: str) -> dict[str, Any] | None:
+        """Return an item (interface, fan ...) of the latest snapshot, or None.
 
-        Older Chirp servers do not send these sections at all and newer ones
-        send ``null`` when a section could not be read; both return None.
+        Every entity looks its item up on each state write, so the items are
+        indexed by ID once per snapshot instead of scanning the list each time.
+        The first item wins when the server repeats an ID.
         """
-        value = (self.data or {}).get(name)
-        return value if isinstance(value, dict) else None
+        if self._index_source is not self.data:
+            self._index_source = self.data
+            self._index = {}
+        index = self._index.get(collection)
+        if index is None:
+            index = {}
+            for item in COLLECTIONS[collection](self.data or {}):
+                index.setdefault(item["id"], item)
+            self._index[collection] = index
+        return index.get(item_id)
 
     def get_interface(self, interface_id: str) -> dict[str, Any] | None:
         """Return a network interface from the latest snapshot, or None."""
-        return find_by_id(network_interfaces(self.data or {}), interface_id)
+        return self.get_item("interfaces", interface_id)
 
     def disk_read_marks(self) -> dict[str, Any]:
         """Return each disk's ``lastReadAt`` to detect a finished SMART read."""

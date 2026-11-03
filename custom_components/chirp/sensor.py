@@ -42,17 +42,15 @@ from .const import (
     SCOPE_MIXED,
     SCOPED_SECTIONS,
 )
-from .coordinator import (
-    ChirpCoordinator,
-    find_by_id,
-    list_with_ids,
-    network_interfaces,
-)
+from .coordinator import COLLECTIONS, ChirpCoordinator, network_interfaces
 from .entity import (
     ChirpDiskEntity,
     ChirpEntity,
     ChirpInterfaceEntity,
+    disk_unique_id,
+    interface_unique_id,
     is_provisional_disk,
+    register_forget_device,
 )
 
 PARALLEL_UPDATES = 0
@@ -254,6 +252,12 @@ def _has_package_power(status: dict[str, Any]) -> bool:
 
 
 def _data_scope(status: dict[str, Any]) -> str | None:
+    """Summarise the scopes of the memory, load and network sections.
+
+    A scope this integration does not know (a future server value) makes the
+    summary unknown instead of guessing; each entity's ``scope`` attribute
+    still shows the raw value so nothing is hidden.
+    """
     scopes = {
         section.get("scope")
         for name in SCOPED_SECTIONS
@@ -408,19 +412,6 @@ METRIC_SENSORS: tuple[ChirpSensorDescription, ...] = (
 )
 
 
-def _power_sources(status: dict[str, Any]) -> list[dict[str, Any]]:
-    power = _section(status, "power")
-    return list_with_ids(None if power is None else power.get("sources"))
-
-
-def _fans(status: dict[str, Any]) -> list[dict[str, Any]]:
-    return list_with_ids(status.get("fans"))
-
-
-def _voltages(status: dict[str, Any]) -> list[dict[str, Any]]:
-    return list_with_ids(status.get("voltages"))
-
-
 def _labels(items: list[dict[str, Any]]) -> dict[str, str]:
     """Return a display label per item ID; repeated labels get the chip name."""
     counts: dict[str, int] = {}
@@ -435,118 +426,107 @@ def _labels(items: list[dict[str, Any]]) -> dict[str, str]:
     return result
 
 
-def _list_descriptions(
-    status: dict[str, Any],
-    items_fn: Callable[[dict[str, Any]], list[dict[str, Any]]],
-    field: str,
-    template: ChirpSensorDescription,
-    *,
-    enabled_fn: Callable[[dict[str, Any]], bool] | None = None,
-) -> list[ChirpSensorDescription]:
-    """Build one sensor per item of a list section (power sources, fans ...)."""
-    items = items_fn(status)
-    labels = _labels(items)
-    descriptions: list[ChirpSensorDescription] = []
-    for item in items:
-        item_id = item["id"]
+@dataclass(frozen=True, kw_only=True)
+class ChirpItemSensorDescription(SensorEntityDescription):
+    """Describe a sensor for one item of a list (power source, fan, voltage)."""
 
-        def item_of(data: dict[str, Any], key: str = item_id) -> dict[str, Any] | None:
-            return find_by_id(items_fn(data), key)
-
-        def value_fn(data: dict[str, Any], key: str = item_id) -> float | int | None:
-            found = item_of(data, key)
-            return None if found is None else _number(found.get(field))
-
-        def attrs_fn(data: dict[str, Any], key: str = item_id) -> dict[str, Any] | None:
-            found = item_of(data, key)
-            if found is None:
-                return None
-            chip = {"chip": found["chip"]} if found.get("chip") else {}
-            return {**_HOST_SCOPE, **chip}
-
-        def present(data: dict[str, Any], key: str = item_id) -> bool:
-            return item_of(data, key) is not None
-
-        enabled = template.entity_registry_enabled_default
-        if enabled_fn is not None:
-            enabled = enabled_fn(item)
-        descriptions.append(
-            dataclasses.replace(
-                template,
-                key=f"{template.key}_{item_id}",
-                entity_registry_enabled_default=enabled,
-                placeholders={"label": labels[item_id]},
-                value_fn=value_fn,
-                exists_fn=present,
-                available_fn=present,
-                attrs_fn=attrs_fn,
-            )
-        )
-    return descriptions
+    collection: str
+    field: str
+    item_id: str = ""
+    # Labels that already contain one of these words use the bare label as the
+    # name ("PPT power" is fine, "power1 power" is not).
+    label_words: tuple[str, ...] = ()
+    placeholders: dict[str, str] | None = None
 
 
 def _fan_spinning(fan: dict[str, Any]) -> bool:
     """Enable a fan sensor by default only for a fan that was spinning.
 
     Monitoring chips list every fan header, so most boards report several
-    ``0`` rpm headers with nothing connected to them.
+    ``0`` rpm headers with nothing connected to them. The decision is made
+    when the entity is first registered; enabling it later is up to the user.
     """
     rpm = _number(fan.get("rpm"))
     return rpm is not None and rpm > 0
 
 
-def _metric_list_descriptions(
-    status: dict[str, Any],
-) -> list[ChirpSensorDescription]:
-    return [
-        # Each power source (RAPL zone, hwmon power reading)
-        *_list_descriptions(
-            status,
-            _power_sources,
-            "watts",
-            ChirpSensorDescription(
-                key="power_source",
-                translation_key="power_source",
-                device_class=SensorDeviceClass.POWER,
-                native_unit_of_measurement=UnitOfPower.WATT,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=1,
-                entity_registry_enabled_default=False,
-                value_fn=lambda _status: None,
-            ),
+ITEM_SENSORS: tuple[
+    tuple[ChirpItemSensorDescription, Callable[[dict[str, Any]], bool] | None], ...
+] = (
+    # Each power source (RAPL zone, hwmon power reading)
+    (
+        ChirpItemSensorDescription(
+            key="power_source",
+            translation_key="power_source",
+            collection="power_sources",
+            field="watts",
+            label_words=("power", "watt"),
+            device_class=SensorDeviceClass.POWER,
+            native_unit_of_measurement=UnitOfPower.WATT,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=1,
+            entity_registry_enabled_default=False,
         ),
-        # Fan speed
-        *_list_descriptions(
-            status,
-            _fans,
-            "rpm",
-            ChirpSensorDescription(
-                key="fan",
-                translation_key="fan",
-                native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=0,
-                value_fn=lambda _status: None,
-            ),
-            enabled_fn=_fan_spinning,
+        None,
+    ),
+    # Fan speed ("CPU Fan speed", "fan2 speed")
+    (
+        ChirpItemSensorDescription(
+            key="fan",
+            translation_key="fan",
+            collection="fans",
+            field="rpm",
+            label_words=("speed",),
+            native_unit_of_measurement=REVOLUTIONS_PER_MINUTE,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
         ),
-        # Voltage rail
-        *_list_descriptions(
-            status,
-            _voltages,
-            "volts",
-            ChirpSensorDescription(
-                key="voltage",
-                translation_key="voltage",
-                device_class=SensorDeviceClass.VOLTAGE,
-                native_unit_of_measurement=UnitOfElectricPotential.VOLT,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=3,
-                entity_registry_enabled_default=False,
-                value_fn=lambda _status: None,
-            ),
+        _fan_spinning,
+    ),
+    # Voltage rail
+    (
+        ChirpItemSensorDescription(
+            key="voltage",
+            translation_key="voltage",
+            collection="voltages",
+            field="volts",
+            label_words=("volt",),
+            device_class=SensorDeviceClass.VOLTAGE,
+            native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=3,
+            entity_registry_enabled_default=False,
         ),
-    ]
+        None,
+    ),
+)
+
+
+def _item_descriptions(status: dict[str, Any]) -> list[ChirpItemSensorDescription]:
+    """Build one sensor description per power source, fan and voltage."""
+    descriptions: list[ChirpItemSensorDescription] = []
+    for template, enabled_fn in ITEM_SENSORS:
+        items = COLLECTIONS[template.collection](status)
+        labels = _labels(items)
+        for item in items:
+            label = labels[item["id"]]
+            plain = any(word in label.lower() for word in template.label_words)
+            enabled = template.entity_registry_enabled_default
+            if enabled_fn is not None:
+                enabled = enabled_fn(item)
+            descriptions.append(
+                dataclasses.replace(
+                    template,
+                    key=f"{template.key}_{item['id']}",
+                    translation_key="labeled_reading"
+                    if plain
+                    else template.translation_key,
+                    item_id=item["id"],
+                    entity_registry_enabled_default=enabled,
+                    placeholders={"label": label},
+                )
+            )
+    return descriptions
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -603,7 +583,7 @@ INTERFACE_SENSORS: tuple[ChirpInterfaceSensorDescription, ...] = (
     # Receive / transmit rate
     _interface_rate("rx_rate", "rxBytesPerSec"),
     _interface_rate("tx_rate", "txBytesPerSec"),
-    # Bytes received / sent since boot
+    # Bytes received / sent since the interface was created (kernel counters)
     _interface_total("rx_total", "rxBytes"),
     _interface_total("tx_total", "txBytes"),
     # Negotiated link speed
@@ -851,17 +831,23 @@ async def async_setup_entry(
             *HOST_SENSORS,
             *_core_descriptions(status),
             *METRIC_SENSORS,
-            *_metric_list_descriptions(status),
         ):
             unique_id = f"{instance_id}_{host_description.key}"
             if unique_id not in known and host_description.exists_fn(status):
                 known.add(unique_id)
                 new.append(ChirpHostSensor(coordinator, entry, host_description))
+        for item_description in _item_descriptions(status):
+            unique_id = f"{instance_id}_{item_description.key}"
+            if unique_id not in known:
+                known.add(unique_id)
+                new.append(ChirpItemSensor(coordinator, entry, item_description))
         for disk in status["disks"]:
             if is_provisional_disk(disk):
                 continue
             for disk_description in DISK_SENSORS:
-                unique_id = f"{instance_id}_{disk['id']}_{disk_description.key}"
+                unique_id = disk_unique_id(
+                    instance_id, disk["id"], disk_description.key
+                )
                 if unique_id not in known and disk_description.exists_fn(disk):
                     known.add(unique_id)
                     new.append(
@@ -869,8 +855,8 @@ async def async_setup_entry(
                     )
         for interface in network_interfaces(status):
             for interface_description in INTERFACE_SENSORS:
-                unique_id = (
-                    f"{instance_id}_net_{interface['id']}_{interface_description.key}"
+                unique_id = interface_unique_id(
+                    instance_id, interface["id"], interface_description.key
                 )
                 if unique_id not in known:
                     known.add(unique_id)
@@ -884,6 +870,12 @@ async def async_setup_entry(
 
     # Fetch errors are always present, independent of what the server reports.
     async_add_entities([ChirpFetchErrorSensor(coordinator, entry)])
+    register_forget_device(
+        entry,
+        known,
+        (description.key for description in DISK_SENSORS),
+        (description.key for description in INTERFACE_SENSORS),
+    )
     _add_new_entities()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
 
@@ -1012,3 +1004,46 @@ class ChirpInterfaceSensor(ChirpInterfaceEntity, SensorEntity):
         return (
             None if interface is None else self.entity_description.value_fn(interface)
         )
+
+
+class ChirpItemSensor(ChirpEntity, SensorEntity):
+    """A host sensor for one power source, fan or voltage reading."""
+
+    entity_description: ChirpItemSensorDescription
+
+    def __init__(
+        self,
+        coordinator: ChirpCoordinator,
+        entry: ChirpConfigEntry,
+        description: ChirpItemSensorDescription,
+    ) -> None:
+        super().__init__(coordinator, entry, description)
+        self._attr_translation_placeholders = description.placeholders or {}
+
+    @property
+    def item(self) -> dict[str, Any] | None:
+        """Return this reading's latest data, or None when it vanished."""
+        description = self.entity_description
+        return self.coordinator.get_item(description.collection, description.item_id)
+
+    @property
+    def available(self) -> bool:
+        """Readings missing from the latest response become unavailable."""
+        return super().available and self.item is not None
+
+    @property
+    def native_value(self) -> float | int | None:
+        """Return the reading from the latest snapshot."""
+        item = self.item
+        return (
+            None if item is None else _number(item.get(self.entity_description.field))
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the scope (always the host's sensors) and the chip."""
+        item = self.item
+        if item is None:
+            return None
+        chip = {"chip": item["chip"]} if item.get("chip") else {}
+        return {**_HOST_SCOPE, **chip}

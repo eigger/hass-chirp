@@ -21,7 +21,10 @@ from .entity import (
     ChirpDiskEntity,
     ChirpEntity,
     ChirpInterfaceEntity,
+    disk_unique_id,
+    interface_unique_id,
     is_provisional_disk,
+    register_forget_device,
 )
 from .sensor import _health_reasons, _health_status
 
@@ -105,7 +108,7 @@ async def async_setup_entry(
     entry: ChirpConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Create binary sensors now and for disks that appear later."""
+    """Create binary sensors now and for disks and interfaces that appear later."""
     coordinator = entry.runtime_data.coordinator
     known: set[str] = set()
 
@@ -123,7 +126,9 @@ async def async_setup_entry(
             if is_provisional_disk(disk):
                 continue
             for disk_description in DISK_BINARY_SENSORS:
-                unique_id = f"{instance_id}_{disk['id']}_{disk_description.key}"
+                unique_id = disk_unique_id(
+                    instance_id, disk["id"], disk_description.key
+                )
                 if unique_id not in known:
                     known.add(unique_id)
                     new.append(
@@ -133,8 +138,8 @@ async def async_setup_entry(
                     )
         for interface in network_interfaces(status):
             for interface_description in INTERFACE_BINARY_SENSORS:
-                unique_id = (
-                    f"{instance_id}_net_{interface['id']}_{interface_description.key}"
+                unique_id = interface_unique_id(
+                    instance_id, interface["id"], interface_description.key
                 )
                 if unique_id not in known:
                     known.add(unique_id)
@@ -146,6 +151,12 @@ async def async_setup_entry(
         if new:
             async_add_entities(new)
 
+    register_forget_device(
+        entry,
+        known,
+        (description.key for description in DISK_BINARY_SENSORS),
+        (description.key for description in INTERFACE_BINARY_SENSORS),
+    )
     _add_new_entities()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
 

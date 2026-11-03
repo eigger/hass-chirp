@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
@@ -22,7 +23,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import ChirpCoordinator, scan_interval_from_options
-from .entity import NET_PREFIX, host_device_info
+from .entity import INTERFACE_DEVICE_INFIX, host_device_info
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
@@ -32,6 +33,12 @@ class ChirpRuntimeData:
     """Objects shared by the integration platforms."""
 
     coordinator: ChirpCoordinator
+    # Each platform registers a callback that forgets the unique IDs it created
+    # for a removed disk or interface device, so they are created again if
+    # that disk or interface comes back later in the same session.
+    forget_device_callbacks: list[Callable[[str, str], None]] = field(
+        default_factory=list
+    )
 
 
 ChirpConfigEntry = ConfigEntry[ChirpRuntimeData]
@@ -79,21 +86,27 @@ async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ChirpConfigEntry, device_entry: dr.DeviceEntry
 ) -> bool:
     """Allow deleting only disk and interface devices gone from the server."""
-    coordinator = entry.runtime_data.coordinator
+    runtime_data = entry.runtime_data
+    coordinator = runtime_data.coordinator
     instance_id = coordinator.instance_id
-    prefix = f"{instance_id}_"
+    interface_prefix = f"{instance_id}{INTERFACE_DEVICE_INFIX}"
+    disk_prefix = f"{instance_id}_"
     for domain, identifier in device_entry.identifiers:
         if domain != DOMAIN:
             continue
-        if identifier == instance_id or not identifier.startswith(prefix):
+        if identifier == instance_id:
             return False
-        child = identifier[len(prefix) :]
-        if (
-            child.startswith(NET_PREFIX)
-            and coordinator.get_interface(child[len(NET_PREFIX) :]) is not None
-        ):
+        if identifier.startswith(interface_prefix):
+            kind, child = "interface", identifier[len(interface_prefix) :]
+            present = coordinator.get_interface(child) is not None
+        elif identifier.startswith(disk_prefix):
+            kind, child = "disk", identifier[len(disk_prefix) :]
+            present = coordinator.get_disk(child) is not None
+        else:
             return False
-        # Disk IDs are model+serial slugs too, so a "net_" identifier is only
-        # removable when no disk of that ID is listed either.
-        return coordinator.get_disk(child) is None
+        if present:
+            return False
+        for forget in runtime_data.forget_device_callbacks:
+            forget(kind, child)
+        return True
     return False

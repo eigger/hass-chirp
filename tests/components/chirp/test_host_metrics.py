@@ -6,9 +6,10 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.chirp import async_remove_config_entry_device
 
-from .conftest import INSTANCE_ID, STATUS_URL, load_status
+from .conftest import HDD_ID, INSTANCE_ID, STATUS_URL, load_status
 
 NET = f"{INSTANCE_ID}_net"
+NET_DEVICE = f"{INSTANCE_ID}:net:"
 SAMPLE_INTERFACES = ("bond0", "eno1", "enp3s0", "vmbr0", "vmbr0_100")
 INTERFACE_SENSOR_KEYS = (
     "rx_rate",
@@ -224,7 +225,7 @@ async def test_sample_power_fan_voltage_values(hass, entry, aioclient_mock, enti
     assert fan.attributes["unit_of_measurement"] == "rpm"
     assert fan.attributes["state_class"] == "measurement"
     assert fan.attributes["chip"] == "nct6798"
-    assert fan.attributes["friendly_name"] == "pve CPU Fan fan speed"
+    assert fan.attributes["friendly_name"] == "pve CPU Fan speed"
     assert "device_class" not in fan.attributes
     assert state("fan_nct6798_fan2").state == "0"
 
@@ -287,13 +288,13 @@ async def test_interface_devices_hang_off_the_host(
 ):
     await _setup(hass, entry, aioclient_mock, "status.json")
     host = device_for(entry, INSTANCE_ID)
-    vlan = device_for(entry, f"{NET}_vmbr0_100")
+    vlan = device_for(entry, f"{NET_DEVICE}vmbr0_100")
     assert vlan.name == "pve vmbr0.100"
     assert vlan.model == "VLAN"
     assert vlan.via_device_id == host.id
-    assert device_for(entry, f"{NET}_bond0").model == "Bond"
-    assert device_for(entry, f"{NET}_eno1").model == "Physical interface"
-    assert device_for(entry, f"{NET}_vmbr0").model == "Bridge"
+    assert device_for(entry, f"{NET_DEVICE}bond0").model == "Bond"
+    assert device_for(entry, f"{NET_DEVICE}eno1").model == "Physical interface"
+    assert device_for(entry, f"{NET_DEVICE}vmbr0").model == "Bridge"
     # Memory, load, power, fan and voltage sensors belong to the host device.
     registry = er.async_get(hass)
     for key in ("memory_used_percent", "package_power", "fan_nct6798_cpu_fan"):
@@ -483,7 +484,7 @@ async def test_repeated_labels_get_the_chip_name(
         ]
         for fan in ("nct6798_fan1", "amdgpu_fan1")
     }
-    assert names == {"pve nct6798 fan1 fan speed", "pve amdgpu fan1 fan speed"}
+    assert names == {"pve nct6798 fan1 speed", "pve amdgpu fan1 speed"}
 
 
 async def test_interfaces_and_fans_added_and_removed(
@@ -491,7 +492,7 @@ async def test_interfaces_and_fans_added_and_removed(
 ):
     await _setup(hass, entry, aioclient_mock, "status.json")
     host = device_for(entry, INSTANCE_ID)
-    enp = device_for(entry, f"{NET}_enp3s0")
+    enp = device_for(entry, f"{NET_DEVICE}enp3s0")
     assert not await async_remove_config_entry_device(hass, entry, enp)
     assert not await async_remove_config_entry_device(hass, entry, host)
 
@@ -521,15 +522,28 @@ async def test_interfaces_and_fans_added_and_removed(
     assert float(
         hass.states.get(entity_id(f"{NET}_eno2_rx_rate")).state
     ) == pytest.approx(0.008)
-    assert device_for(entry, f"{NET}_eno2").via_device_id == host.id
+    assert device_for(entry, f"{NET_DEVICE}eno2").via_device_id == host.id
     # Only the vanished interface device can be removed.
     assert await async_remove_config_entry_device(hass, entry, enp)
     assert not await async_remove_config_entry_device(
-        hass, entry, device_for(entry, f"{NET}_eno2")
+        hass, entry, device_for(entry, f"{NET_DEVICE}eno2")
     )
     dr.async_get(hass).async_remove_device(enp.id)
     await hass.async_block_till_done()
     assert registered(f"{NET}_enp3s0_rx_rate") is None
+    assert registered(f"{NET}_enp3s0_link", "binary_sensor") is None
+    assert device_for(entry, f"{NET_DEVICE}enp3s0") is None
+
+    # The interface comes back in the same session: it gets new entities.
+    await _refresh(hass, entry, aioclient_mock, load_status())
+    assert hass.states.get(entity_id(f"{NET}_enp3s0_rx_rate")).state == "0.0"
+    assert (
+        hass.states.get(entity_id(f"{NET}_enp3s0_link", "binary_sensor")).state == "off"
+    )
+    assert registered(f"{NET}_enp3s0_rx_errors").disabled_by is (
+        er.RegistryEntryDisabler.INTEGRATION
+    )
+    assert device_for(entry, f"{NET_DEVICE}enp3s0").via_device_id == host.id
 
 
 async def test_server_outage_keeps_metrics_then_unavailable(
@@ -550,3 +564,132 @@ async def test_server_outage_keeps_metrics_then_unavailable(
     await hass.async_block_till_done()
     assert hass.states.get(memory).state == "unavailable"
     assert hass.states.get(link).state == "unavailable"
+
+
+async def test_removed_disk_device_is_recreated_when_the_disk_returns(
+    hass, entry, aioclient_mock, entity_id, registered, device_for
+):
+    await _setup(hass, entry, aioclient_mock, "status.json")
+    disk = f"{INSTANCE_ID}_{HDD_ID}"
+    await _refresh(hass, entry, aioclient_mock, load_status("status_disk_removed.json"))
+    device = device_for(entry, disk)
+    assert await async_remove_config_entry_device(hass, entry, device)
+    dr.async_get(hass).async_remove_device(device.id)
+    await hass.async_block_till_done()
+    assert registered(f"{disk}_temperature") is None
+
+    await _refresh(hass, entry, aioclient_mock, load_status())
+    assert hass.states.get(entity_id(f"{disk}_temperature")).state == "34"
+    assert (
+        hass.states.get(entity_id(f"{disk}_smart_problem", "binary_sensor")).state
+        == "on"
+    )
+
+
+async def test_disk_and_interface_ids_cannot_share_a_device(
+    hass, entry, aioclient_mock, device_for, registered
+):
+    """A disk ID ``net_eno1`` and the interface ``eno1`` stay separate."""
+    payload = load_status()
+    payload["disks"][0]["id"] = "net_eno1"
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    disk = device_for(entry, f"{INSTANCE_ID}_net_eno1")
+    interface = device_for(entry, f"{NET_DEVICE}eno1")
+    assert disk is not None and interface is not None
+    assert disk.id != interface.id
+    assert disk.name == "ST4000VN008-2DR166 (ABCD)"
+    assert interface.name == "pve eno1"
+    registry = er.async_get(hass)
+    assert (
+        registry.async_get(
+            registered(f"{INSTANCE_ID}_net_eno1_temperature").entity_id
+        ).device_id
+        == disk.id
+    )
+    assert registered(f"{NET}_eno1_rx_rate").device_id == interface.id
+    # Both are present, so neither can be removed.
+    assert not await async_remove_config_entry_device(hass, entry, disk)
+    assert not await async_remove_config_entry_device(hass, entry, interface)
+
+    # Only the disk vanishes: its device is removable, the interface's is not.
+    payload = load_status()
+    payload["disks"] = payload["disks"][1:]
+    await _refresh(hass, entry, aioclient_mock, payload)
+    assert await async_remove_config_entry_device(hass, entry, disk)
+    assert not await async_remove_config_entry_device(hass, entry, interface)
+
+    # Only the interface vanishes: the reverse.
+    payload = load_status()
+    payload["disks"][0]["id"] = "net_eno1"
+    payload["network"]["interfaces"] = [
+        iface for iface in payload["network"]["interfaces"] if iface["id"] != "eno1"
+    ]
+    await _refresh(hass, entry, aioclient_mock, payload)
+    assert not await async_remove_config_entry_device(hass, entry, disk)
+    assert await async_remove_config_entry_device(hass, entry, interface)
+
+
+async def test_labels_that_name_the_reading_are_not_repeated(
+    hass, entry, aioclient_mock, entity_id, registered
+):
+    payload = load_status()
+    payload["power"]["sources"] = [
+        {"id": "zenpower_power1", "label": "power1", "watts": 30.5},
+        {"id": "zenpower_ppt", "label": "PPT", "watts": 45.0},
+    ]
+    payload["voltages"] = [
+        {
+            "id": "it8686_vcore",
+            "chip": "it8686",
+            "label": "Vcore Voltage",
+            "volts": 1.2,
+        },
+    ]
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    _enable_all(hass, entry)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    def name(key):
+        return hass.states.get(entity_id(f"{INSTANCE_ID}_{key}")).attributes[
+            "friendly_name"
+        ]
+
+    assert name("power_source_zenpower_power1") == "pve power1"
+    assert name("power_source_zenpower_ppt") == "pve PPT power"
+    assert name("voltage_it8686_vcore") == "pve Vcore Voltage"
+    assert registered(
+        f"{INSTANCE_ID}_power_source_zenpower_power1"
+    ).translation_key == ("labeled_reading")
+    assert registered(f"{INSTANCE_ID}_power_source_zenpower_ppt").translation_key == (
+        "power_source"
+    )
+
+
+async def test_unknown_scope_value(hass, entry, aioclient_mock, entity_id):
+    """A scope this release does not know: summary unknown, raw value shown."""
+    payload = load_status()
+    payload["memory"]["scope"] = "vm"
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id(f"{INSTANCE_ID}_data_scope")).state == "unknown"
+    memory = hass.states.get(entity_id(f"{INSTANCE_ID}_memory_used_percent"))
+    assert memory.attributes["scope"] == "vm"
+    assert memory.state == "37.6"
+
+
+async def test_repeated_item_ids_use_the_first_item(
+    hass, entry, aioclient_mock, entity_id
+):
+    payload = load_status()
+    payload["fans"].append({**payload["fans"][0], "rpm": 9999})
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    fan = hass.states.get(entity_id(f"{INSTANCE_ID}_fan_nct6798_cpu_fan"))
+    assert fan.state == "1180"
