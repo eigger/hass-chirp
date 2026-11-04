@@ -454,6 +454,29 @@
             }
           }
         }
+      },
+      "health_reason": {
+        "name": "건강 상태 사유",
+        "state": {
+          "none": "문제 없음",
+          "warning": "주의 (사유 미보고)",
+          "failing": "위험 (사유 미보고)",
+          "smart_failed": "SMART 검사 실패",
+          "nvme_critical_warning": "NVMe 심각한 경고",
+          "spare_below_threshold": "가용 예비 공간 부족",
+          "reallocated_sectors": "재할당된 섹터",
+          "pending_sectors": "대기 중 섹터",
+          "offline_uncorrectable": "오프라인 복구 불가 섹터",
+          "media_errors": "미디어 오류",
+          "wear_high": "높은 마모율",
+          "temperature_high": "온도 높음",
+          "not_read": "아직 읽지 못함"
+        },
+        "state_attributes": {
+          "reasons": {
+            "name": "사유"
+          }
+        }
       }
     },
     "binary_sensor": {

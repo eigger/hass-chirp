@@ -63,6 +63,7 @@ Chirp 인스턴스마다 고유 ID가 있습니다. 같은 인스턴스를 다�
 | 전원 켜짐 시간 | 누적 증가 |
 | 전원 켜짐 횟수 | 진단용 |
 | 건강 상태 | `ok`, `warning`, `failing`; Chirp가 판정을 내리지 못하면 Home Assistant의 *알 수 없음*; 속성 `reasons` |
+| 건강 상태 사유 | 원인을 상태값으로 표시(예: `온도 높음 (70 °C)`); 전체 원본은 속성 `reasons` |
 | SMART 문제 | 문제 센서; `warning`/`failing`이면 켜짐; 속성 `reasons`, `smart_passed` |
 | 재할당된 섹터, 대기 중 섹터 | SATA, 기본 활성 |
 | 오프라인 복구 불가 섹터, UDMA CRC 오류 | SATA, 진단용 |
@@ -113,6 +114,10 @@ Chirp는 기본적으로 물리 NIC·본드·브리지·VLAN을 나열하고 `ve
 **관점(호스트 또는 컨테이너).** Chirp는 흔히 컨테이너(Proxmox LXC, Docker)에서 실행됩니다. 이때 메모리·부하·네트워크 값은 **호스트**(컨테이너에 마운트한 호스트의 `/proc`·`/sys`를 읽거나, 컨테이너가 아닌 경우)에서 오거나 **컨테이너** 자신의 관점에서 옵니다. LXC라면 컨테이너 한도(예: RAM 512 MB, CPU 1개)와 컨테이너 자신의 `eth0`일 수 있습니다. 메모리·부하·네트워크 엔티티마다 `scope` 속성(`host` 또는 `container`)이 있고, 진단용 **지표 관점** 센서가 이를 요약합니다(섹션마다 다르면 `mixed`). 관점이 바뀌어도 엔티티 이름은 바뀌지 않습니다. `container`로 나오는데 호스트 값을 원한다면 Chirp 배포 안내([호스트 지표](https://github.com/eigger/chirp/blob/master/docs/deploy.md#host-metrics-memory-load-network))대로 호스트 마운트를 추가하세요. 컨테이너 관점 엔티티도 호스트 관점과 같은 기본 활성 설정을 쓰므로, 나중에 호스트 관점으로 바뀌어도 비활성 상태로 남지 않습니다. 전력·팬·전압은 어느 경우든 호스트 하드웨어 센서에서 읽으며 항상 `scope: host`입니다.
 
 ### 건강 상태 사유
+
+디스크별 **건강 상태 사유** 센서(`..._health_reason`)는 문제 원인과 값을 상태값으로 표시합니다. 예를 들어 `온도 높음 (70 °C)`, `재할당된 섹터 (8)`로 표시하고, 여러 사유는 `; `로 연결합니다. 정상으로 돌아오면 `문제 없음`으로 표시합니다. 건강 상태가 계속 `주의`여도 원인이 바뀌면 이 센서의 상태가 바뀌므로 **기록**에서 당시 원인을 확인할 수 있습니다. Recorder가 이 센서를 기록해야 하며 보관 기간과 제외 설정이 적용됩니다. 추가 이전의 원인 내역은 소급 생성되지 않습니다.
+
+표시 문구는 Home Assistant 설정 언어의 번역 파일을 사용하며 번역이 없으면 영어로 표시합니다. 새 언어 설정은 통합을 다시 불러오면 반영됩니다. 아직 번역되지 않은 API 코드는 그대로 표시하고, 전체 원본 코드와 값은 `reasons` 속성에 보존합니다. 상태값이 Home Assistant의 255자 제한을 넘으면 말줄임표로 줄입니다. 판정을 받지 못하고 사유도 없으면 *알 수 없음*, 주의·위험인데 사유가 없으면 `주의 (사유 미보고)`·`위험 (사유 미보고)`로 표시합니다.
 
 `reasons` 속성은 `code`와 선택적 `value`를 가진 객체 목록입니다. 코드는 Chirp API의 값입니다: `smart_failed`, `nvme_critical_warning`, `spare_below_threshold`, `reallocated_sectors`, `pending_sectors`, `offline_uncorrectable`, `media_errors`, `wear_high`, `temperature_high`, `not_read`. Chirp의 판정이 `unknown`(디스크를 읽지 못함, 예: `not_read`)이면 건강 상태 센서는 별도 옵션 대신 Home Assistant 고유의 *알 수 없음* 상태가 되고, `reasons` 속성이 이유를 알려 주며, SMART 문제 센서도 *알 수 없음*이 되어 문제로 보고하지 않습니다.
 

@@ -63,6 +63,7 @@ The integration creates only the entities the server actually reports. Disabled-
 | Power-on hours | Total increasing |
 | Power cycle count | Diagnostic |
 | Health | `ok`, `warning` or `failing`; Home Assistant's *unknown* when Chirp reports no verdict; attribute `reasons` |
+| Health reason | Actual reasons as state (e.g. `High temperature (70 °C)`); full raw details in `reasons` |
 | SMART problem | Problem sensor; on for `warning` or `failing`; attributes `reasons`, `smart_passed` |
 | Reallocated sectors, Pending sectors | SATA disks, enabled by default |
 | Offline uncorrectable sectors, UDMA CRC errors | SATA disks, diagnostic |
@@ -113,6 +114,10 @@ Host metrics need a Chirp server that reports them. An older server simply does 
 **Scope (host or container).** Chirp often runs in a container (Proxmox LXC, Docker). Memory, load and network values then come either from the **host** (Chirp reads the host's `/proc` and `/sys` mounted into the container, or it is not in a container) or from the **container**'s own view: in an LXC that can be the container's limits (for example 512 MB of RAM, one CPU) and its own `eth0`. Each memory, load and network entity has a `scope` attribute (`host` or `container`), and the diagnostic **Metrics scope** sensor summarises them (`mixed` when sections differ). Entity names do not change with the scope. If it says `container` but you want host values, give Chirp the host mounts described in Chirp's deployment guide ([host metrics](https://github.com/eigger/chirp/blob/master/docs/deploy.md#host-metrics-memory-load-network)). Container-scope entities keep the same defaults as host ones, so a later switch to host scope does not leave them disabled. Power, fan and voltage readings come from the host's hardware sensors in both cases and always have `scope: host`.
 
 ### Health reasons
+
+Each disk's **Health reason** sensor (`..._health_reason`) exposes the reason and value as its state, for example `High temperature (70 °C)` or `Reallocated sectors (8)`. Multiple reasons are separated by `; `. Recovery shows `No issues`. A change of reason changes this sensor's state even if health remains `warning`, so **History** can show the actual past problem. Recorder must record this sensor; retention and exclusion settings apply. Reasons from before this sensor was added cannot be recovered retroactively.
+
+Labels come from translation files using Home Assistant's configured language, with English fallback. Reload the integration after changing that language. Untranslated API codes are shown as received, and `reasons` retains all original codes and values. States longer than Home Assistant's 255-character limit are shortened with an ellipsis. A missing verdict with no reasons shows *unknown*; warning or failing without reasons explicitly shows `Warning (reason not reported)` or `Failing (reason not reported)`.
 
 The `reasons` attribute lists objects with a `code` and an optional `value`. Codes come from the Chirp API: `smart_failed`, `nvme_critical_warning`, `spare_below_threshold`, `reallocated_sectors`, `pending_sectors`, `offline_uncorrectable`, `media_errors`, `wear_high`, `temperature_high` and `not_read`. When Chirp's verdict is `unknown` (it could not read the disk, for example `not_read`), the health sensor shows Home Assistant's own *unknown* state rather than a separate option, the `reasons` attribute still explains why, and the SMART problem sensor is *unknown* too, so it is not reported as a problem.
 
