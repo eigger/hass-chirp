@@ -12,6 +12,7 @@ from .api import ChirpAuthError, ChirpError
 from .const import DOMAIN
 from .coordinator import ChirpCoordinator
 from .entity import ChirpEntity
+from .groups import selected_entities
 
 PARALLEL_UPDATES = 1
 
@@ -22,7 +23,11 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Create the refresh button."""
-    async_add_entities([ChirpRefreshButton(entry.runtime_data.coordinator, entry)])
+    async_add_entities(
+        selected_entities(
+            entry, [ChirpRefreshButton(entry.runtime_data.coordinator, entry)]
+        )
+    )
 
 
 class ChirpRefreshButton(ChirpEntity, ButtonEntity):

@@ -3,13 +3,19 @@
     "step": {
       "user": {
         "title": "Chirp 연결",
-        "description": "Chirp 서버의 주소와 포트, API 키를 입력하세요. API 키는 chp_ 로 시작합니다. Chirp 대시보드의 설정 → API 키에서 확인하거나, Chirp 서버에서 key show 명령을 실행하세요(문서 참고).",
+        "description": "Chirp 서버의 주소와 포트, API 키를 입력하세요. API 키는 chp_ 로 시작합니다. Chirp 대시보드의 설정 → API 키에서 확인하거나, Chirp 서버에서 key show 명령을 실행하세요(문서 참고). 추가할 센서 그룹을 선택하세요. 나중에 구성 또는 재구성에서 변경할 수 있습니다. 이 선택은 Home Assistant 엔티티에 적용되며 서버 수집 설정은 Chirp에서 변경합니다.",
         "data": {
           "host": "주소",
           "port": "포트",
           "api_key": "API 키",
           "ssl": "HTTPS 사용",
-          "verify_ssl": "SSL 인증서 확인"
+          "verify_ssl": "SSL 인증서 확인",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM·스왑",
+          "monitor_smart": "디스크·SMART",
+          "monitor_network": "네트워크",
+          "monitor_hardware": "하드웨어 온도·전력·팬·전압",
+          "monitor_storage": "파일시스템·ZFS"
         },
         "data_description": {
           "host": "Chirp 서버의 IP 주소 또는 호스트 이름입니다. http:// 나 경로는 입력하지 마세요.",
@@ -31,12 +37,18 @@
       },
       "reconfigure": {
         "title": "Chirp 재구성",
-        "description": "이 Chirp 서버의 주소를 변경합니다. 저장된 API 키를 그대로 사용하며 같은 인스턴스여야 합니다.",
+        "description": "이 Chirp 서버의 주소를 변경합니다. 저장된 API 키를 그대로 사용하며 같은 인스턴스여야 합니다. 추가할 센서 그룹을 선택하세요. 나중에 구성 또는 재구성에서 변경할 수 있습니다. 이 선택은 Home Assistant 엔티티에 적용되며 서버 수집 설정은 Chirp에서 변경합니다.",
         "data": {
           "host": "주소",
           "port": "포트",
           "ssl": "HTTPS 사용",
-          "verify_ssl": "SSL 인증서 확인"
+          "verify_ssl": "SSL 인증서 확인",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM·스왑",
+          "monitor_smart": "디스크·SMART",
+          "monitor_network": "네트워크",
+          "monitor_hardware": "하드웨어 온도·전력·팬·전압",
+          "monitor_storage": "파일시스템·ZFS"
         },
         "data_description": {
           "host": "Chirp 서버의 IP 주소 또는 호스트 이름입니다. http:// 나 경로는 입력하지 마세요.",
@@ -64,9 +76,15 @@
     "step": {
       "init": {
         "title": "Chirp 옵션",
-        "description": "Home Assistant가 Chirp를 조회하는 주기를 선택하세요.",
+        "description": "Home Assistant가 Chirp를 조회하는 주기를 선택하세요. 추가할 센서 그룹을 선택하세요. 나중에 구성 또는 재구성에서 변경할 수 있습니다. 이 선택은 Home Assistant 엔티티에 적용되며 서버 수집 설정은 Chirp에서 변경합니다.",
         "data": {
-          "scan_interval": "갱신 주기(초)"
+          "scan_interval": "갱신 주기(초)",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM·스왑",
+          "monitor_smart": "디스크·SMART",
+          "monitor_network": "네트워크",
+          "monitor_hardware": "하드웨어 온도·전력·팬·전압",
+          "monitor_storage": "파일시스템·ZFS"
         },
         "data_description": {
           "scan_interval": "30~3600초 사이로 설정합니다. SMART 데이터 자체의 갱신 주기는 Chirp가 따로 관리합니다."
@@ -477,6 +495,60 @@
             "name": "사유"
           }
         }
+      },
+      "memory_available": {
+        "name": "가용 메모리"
+      },
+      "swap_used": {
+        "name": "스왑 사용량"
+      },
+      "swap_total": {
+        "name": "전체 스왑"
+      },
+      "io_wait_percent": {
+        "name": "I/O 대기율"
+      },
+      "hardware_temperature": {
+        "name": "{label} 온도"
+      },
+      "last_read_at": {
+        "name": "마지막 SMART 정상 수집"
+      },
+      "read_error": {
+        "name": "SMART 읽기 오류",
+        "state": {
+          "none": "없음",
+          "open_failed": "장치 열기 실패",
+          "timeout": "시간 초과",
+          "parse_error": "해석 오류"
+        }
+      },
+      "filesystem_used_percent": {
+        "name": "{label} 파일시스템 사용률"
+      },
+      "filesystem_used": {
+        "name": "{label} 파일시스템 사용량"
+      },
+      "filesystem_total": {
+        "name": "{label} 파일시스템 전체 용량"
+      },
+      "filesystem_available": {
+        "name": "{label} 파일시스템 가용 용량"
+      },
+      "zfs_pool_used_percent": {
+        "name": "{label} ZFS 풀 사용률"
+      },
+      "zfs_pool_used": {
+        "name": "{label} ZFS 풀 사용량"
+      },
+      "zfs_pool_total": {
+        "name": "{label} ZFS 풀 전체 용량"
+      },
+      "zfs_pool_free": {
+        "name": "{label} ZFS 풀 여유 용량"
+      },
+      "zfs_pool_health": {
+        "name": "{label} ZFS 풀 건강 상태"
       }
     },
     "binary_sensor": {
@@ -518,6 +590,12 @@
             }
           }
         }
+      },
+      "read_problem": {
+        "name": "SMART 수집 문제"
+      },
+      "standby": {
+        "name": "대기 모드"
       }
     },
     "button": {

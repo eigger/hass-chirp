@@ -155,3 +155,28 @@ actions:
 - **Memory or network values look too small** (for example 512 MB of RAM or only `eth0`): check the `scope` attribute or the **Metrics scope** sensor. `container` means Chirp sees only its container; see [Host metrics: availability and scope](#host-metrics-availability-and-scope).
 - Remove API keys, host names, IP addresses and disk serial numbers from issue reports. Diagnostics redact them automatically, as well as MAC addresses embedded in interface names (`enx…`, `wlx…`).
 - Tests use real Home Assistant with mocked HTTP responses and do not certify a live Chirp server.
+
+## Choosing sensor groups
+
+During setup, use the CPU, RAM and swap, Disks and SMART, Network, Hardware, and Filesystems and ZFS checkboxes to select the Home Assistant entities to add. Change these later under **Settings → Devices & services → Chirp → Configure**, alongside the polling interval, or use **Reconfigure** to change groups together with the server address. Existing installations enable all groups by default.
+
+Deselecting a group stops adding its entities and disables its existing entities. Selecting it again restores the entities enabled before the group was turned off, preserving entity IDs, custom names and individual user disables. Entities disabled by default stay disabled. Boot time, fetch errors and metrics scope remain available for diagnosis. Group selection affects Home Assistant entities; Chirp continues its own collection schedule.
+
+### Additional sensors
+
+| Sensor | Default / availability |
+|---|---|
+| Available memory | Enabled; existing API `memory.availableBytes`; GiB, scope attribute |
+| Swap used / total | Disabled; only when swap is configured; GiB |
+| I/O wait | Enabled when the server reports `load.ioWaitPercent`; %, scope and CPU count |
+| Hardware temperatures | Disabled; one per `sensors[].id`. Older servers without stable IDs do not create these entities |
+| Last successful SMART read | Enabled diagnostic timestamp per disk; retained during standby and failed reads |
+| SMART collection problem | Enabled diagnostic problem binary sensor; errors turn it on, never-read disks remain unknown |
+| SMART read error | Disabled diagnostic enum: none, open failed, timeout, parse error |
+| Standby | Disabled diagnostic binary sensor; sleeping does not count as a collection failure |
+| Filesystem usage / available bytes | Enabled per configured path; used and total bytes disabled |
+| ZFS pool health / usage | Enabled per pool GUID; used, total and free bytes disabled |
+
+I/O wait, stable temperature IDs and storage fields require the Chirp API extension in [server PR #7](https://github.com/eigger/chirp/pull/7). Existing memory and SMART diagnostics also work with older servers. Missing optional arrays create no entities; previously discovered items become unavailable when absent and recover under the same ID when they return. An unreadable individual value is unknown. ZFS health preserves the server's raw status (for example `ONLINE` or `DEGRADED`).
+
+Filesystem/ZFS collection is opt-in on the server. Set `CHIRP_FILESYSTEM_PATHS=/,/data` and/or `CHIRP_ZFS_ENABLED=true` in Chirp, then restart it. Host paths inside a container additionally need an explicit read-only root mount and `CHIRP_HOST_ROOT`; otherwise filesystem scope is container. See the [server API contract](https://github.com/eigger/chirp/blob/codex/host-storage-api/docs/api.md#additional-host-and-storage-metrics). Pool free bytes are raw ZFS pool space, not dataset available space. Hardware temperature discovery can include disk temperatures already covered by SMART; enable only the readings you want.

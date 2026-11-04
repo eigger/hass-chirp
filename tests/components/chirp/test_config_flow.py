@@ -219,7 +219,13 @@ async def test_options_flow_changes_scan_interval(hass, setup_entry):
     )
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {"scan_interval": 120}
+    assert entry.options == {
+        "scan_interval": 120,
+        **{
+            f"monitor_{group}": True
+            for group in ("cpu", "ram", "smart", "network", "hardware", "storage")
+        },
+    }
     assert entry.runtime_data.coordinator is not first
     assert entry.runtime_data.coordinator.update_interval.total_seconds() == 120
 

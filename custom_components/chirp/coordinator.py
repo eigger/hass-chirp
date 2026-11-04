@@ -75,6 +75,9 @@ def voltages(status: dict[str, Any]) -> list[dict[str, Any]]:
 
 # Lists of a snapshot whose items are looked up by their ``id``.
 COLLECTIONS: dict[str, Callable[[dict[str, Any]], list[dict[str, Any]]]] = {
+    "temperatures": lambda status: list_with_ids(status.get("sensors")),
+    "filesystems": lambda status: list_with_ids(status.get("filesystems")),
+    "zfs_pools": lambda status: list_with_ids(status.get("zfsPools")),
     "interfaces": network_interfaces,
     "power_sources": power_sources,
     "fans": fans,

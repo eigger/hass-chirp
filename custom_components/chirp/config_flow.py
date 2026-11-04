@@ -42,6 +42,7 @@ from .const import (
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
+from .groups import group_options
 
 # Newer Home Assistant reloads the entry itself when options change; older
 # releases need the update listener registered in ``__init__``.
@@ -63,6 +64,13 @@ def _connection_schema(*, with_key: bool) -> vol.Schema:
     fields[vol.Required(CONF_SSL, default=DEFAULT_SSL)] = bool
     fields[vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL)] = bool
     return vol.Schema(fields)
+
+
+def _group_fields(options: dict[str, Any]) -> dict[Any, Any]:
+    return {
+        vol.Required(key, default=value): bool
+        for key, value in group_options(options).items()
+    }
 
 
 def _connection_input(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -131,13 +139,15 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
                 # so adding it again safely refreshes the address and the key.
                 self._abort_if_unique_id_configured(updates=data)
                 return self.async_create_entry(
-                    title=str(instance.get("hostname") or "Chirp"), data=data
+                    title=str(instance.get("hostname") or "Chirp"),
+                    data=data,
+                    options=group_options(user_input),
                 )
 
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _connection_schema(with_key=True), user_input
+                _connection_schema(with_key=True).extend(_group_fields({})), user_input
             ),
             errors=errors,
         )
@@ -186,6 +196,7 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_mismatch(reason="wrong_instance")
                 return self.async_update_reload_and_abort(
                     entry,
+                    options={**entry.options, **group_options(user_input)},
                     data_updates={
                         **connection,
                         CONF_HOST: normalize_host(connection[CONF_HOST]).strip("[]"),
@@ -201,7 +212,10 @@ class ChirpConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
-                _connection_schema(with_key=False), suggested
+                _connection_schema(with_key=False).extend(
+                    _group_fields(dict(entry.options))
+                ),
+                suggested,
             ),
             errors=errors,
         )
@@ -221,7 +235,9 @@ class ChirpOptionsFlow(_OptionsFlowBase):
     ) -> ConfigFlowResult:
         """Edit the polling interval."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(
+                data={**self.config_entry.options, **user_input}
+            )
 
         schema = vol.Schema(
             {
@@ -236,4 +252,7 @@ class ChirpOptionsFlow(_OptionsFlowBase):
                 )
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema.extend(_group_fields(dict(self.config_entry.options))),
+        )

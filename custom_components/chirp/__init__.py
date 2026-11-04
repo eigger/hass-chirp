@@ -25,6 +25,7 @@ from .const import (
 )
 from .coordinator import ChirpCoordinator, scan_interval_from_options
 from .entity import INTERFACE_DEVICE_INFIX, host_device_info
+from .groups import group_options, sync_group_registry
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
@@ -34,6 +35,7 @@ class ChirpRuntimeData:
     """Objects shared by the integration platforms."""
 
     coordinator: ChirpCoordinator
+    sensor_groups: dict[str, bool] = field(default_factory=lambda: group_options({}))
     # Each platform registers a callback that forgets the unique IDs it created
     # for a removed disk or interface device, so they are created again if
     # that disk or interface comes back later in the same session.
@@ -61,7 +63,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> boo
     )
     coordinator = ChirpCoordinator(hass, entry, api)
     await coordinator.async_config_entry_first_refresh()
-    entry.runtime_data = ChirpRuntimeData(coordinator)
+    entry.runtime_data = ChirpRuntimeData(
+        coordinator, sensor_groups=group_options(dict(entry.options))
+    )
+    sync_group_registry(hass, entry, coordinator.instance_id)
 
     # Disk devices reference the host through via_device, so create it first.
     dr.async_get(hass).async_get_or_create(
@@ -86,9 +91,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> bo
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ChirpConfigEntry) -> None:
-    """Reload when the polling interval option changes."""
+    """Reload older HA releases when the interval or selected groups change."""
     coordinator = entry.runtime_data.coordinator
-    if scan_interval_from_options(entry.options) != coordinator.update_interval:
+    if (
+        scan_interval_from_options(entry.options) != coordinator.update_interval
+        or group_options(dict(entry.options)) != entry.runtime_data.sensor_groups
+    ):
         await hass.config_entries.async_reload(entry.entry_id)
 
 
