@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -27,12 +27,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from . import ChirpConfigEntry
 from .const import (
     DATA_SCOPES,
+    DOMAIN,
     HEALTH_FAILING,
     HEALTH_OK,
     HEALTH_STATES,
@@ -673,6 +675,32 @@ def _health_reasons(disk: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _health_reason_text(disk: dict[str, Any], labels: dict[str, str]) -> str | None:
+    """Expose readable reasons as state so history retains the actual problem."""
+    parts = []
+    for reason in _health_reasons(disk):
+        code = reason["code"]
+        if not isinstance(code, str) or not code:
+            continue
+        label = labels.get(code, code)
+        value = reason["value"]
+        if value is not None:
+            unit = " °C" if code == "temperature_high" else ""
+            if code in ("wear_high", "spare_below_threshold"):
+                unit = " %"
+            label = f"{label} ({value}{unit})"
+        parts.append(label)
+    if not parts:
+        status = _health_status(disk)
+        if status is None:
+            return None
+        return labels["none" if status == HEALTH_OK else status]
+    # Home Assistant limits entity states to 255 characters. Full details remain
+    # available in reasons even when a server reports many or unfamiliar codes.
+    text = "; ".join(parts)
+    return text if len(text) <= 255 else f"{text[:252]}..."
+
+
 def _count_description(
     key: str,
     field: str,
@@ -730,6 +758,13 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=HEALTH_STATES,
         value_fn=_health_status,
+        attrs_fn=lambda disk: {"reasons": _health_reasons(disk)},
+    ),
+    ChirpDiskSensorDescription(
+        key="health_reason",
+        translation_key="health_reason",
+        icon="mdi:text-box-search-outline",
+        value_fn=lambda _disk: None,  # Bound to translated labels during setup.
         attrs_fn=lambda disk: {"reasons": _health_reasons(disk)},
     ),
     # Reallocated sectors count
@@ -828,6 +863,26 @@ async def async_setup_entry(
     """Create sensors now and whenever new disks or cores show up."""
     coordinator = entry.runtime_data.coordinator
     known: set[str] = set()
+    translations = dict(await async_get_translations(hass, "en", "entity", {DOMAIN}))
+    if hass.config.language != "en":
+        translations.update(
+            await async_get_translations(hass, hass.config.language, "entity", {DOMAIN})
+        )
+    prefix = f"component.{DOMAIN}.entity.sensor.health_reason.state."
+    reason_labels = {
+        key.removeprefix(prefix): value
+        for key, value in translations.items()
+        if key.startswith(prefix)
+    }
+    disk_descriptions = tuple(
+        replace(
+            description,
+            value_fn=lambda disk: _health_reason_text(disk, reason_labels),
+        )
+        if description.key == "health_reason"
+        else description
+        for description in DISK_SENSORS
+    )
 
     @callback
     def _add_new_entities() -> None:
@@ -851,7 +906,7 @@ async def async_setup_entry(
         for disk in status["disks"]:
             if is_provisional_disk(disk):
                 continue
-            for disk_description in DISK_SENSORS:
+            for disk_description in disk_descriptions:
                 unique_id = disk_unique_id(
                     instance_id, disk["id"], disk_description.key
                 )

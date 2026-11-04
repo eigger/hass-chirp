@@ -356,3 +356,90 @@ async def test_server_unknown_health_is_ha_unknown_state(
         health = hass.states.get(entity_id(f"{disk}_health"))
         assert health.state == "unknown"
         assert "unknown" not in health.attributes["options"]
+
+
+@pytest.mark.parametrize(
+    ("language", "expected", "healthy"),
+    [
+        ("en", "High temperature (70 °C)", "No issues"),
+        ("ko", "온도 높음 (70 °C)", "문제 없음"),
+        ("fr", "High temperature (70 °C)", "No issues"),
+    ],
+)
+async def test_health_reason_state_changes_and_recovers(
+    hass, entry, aioclient_mock, entity_id, language, expected, healthy
+):
+    """Reason changes must change state even while the verdict stays warning."""
+    hass.config.language = language
+    payload = load_status()
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    reason_id = entity_id(f"{HDD}_health_reason")
+    before = hass.states.get(reason_id).state
+
+    async def refresh(health):
+        payload["disks"][0]["health"] = health
+        aioclient_mock.clear_requests()
+        aioclient_mock.get(STATUS_URL, json=payload)
+        await entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        return hass.states.get(reason_id)
+
+    reasons = [{"code": "temperature_high", "value": 70}]
+    state = await refresh({"status": "warning", "reasons": reasons})
+    assert state.state == expected
+    assert state.state != before
+    assert state.attributes["reasons"] == reasons
+    assert hass.states.get(entity_id(f"{HDD}_health")).state == "warning"
+    state = await refresh({"status": "ok", "reasons": []})
+    assert state.state == healthy
+    assert state.attributes["reasons"] == []
+    state = await refresh({"status": "unknown", "reasons": []})
+    assert state.state == "unknown"
+    state = await refresh({"status": "unknown", "reasons": [{"code": "not_read"}]})
+    assert state.state == ("아직 읽지 못함" if language == "ko" else "Not read")
+
+
+async def test_health_reason_multiple_unknown_codes_and_state_limit(
+    hass, setup_entry, api_response, entity_id
+):
+    payload = load_status()
+    reasons = [
+        {"code": "smart_failed"},
+        {"code": "spare_below_threshold", "value": 0},
+        {"code": "wear_high", "value": 97},
+        {"code": "future_reason", "value": 12},
+    ]
+
+    async def refresh():
+        payload["disks"][0]["health"] = {"status": "failing", "reasons": reasons}
+        api_response.clear_requests()
+        api_response.get(STATUS_URL, json=payload)
+        await setup_entry.runtime_data.coordinator.async_refresh()
+        await hass.async_block_till_done()
+        return hass.states.get(entity_id(f"{HDD}_health_reason"))
+
+    state = await refresh()
+    assert state.state == (
+        "SMART check failed; Available spare below threshold (0 %); "
+        "High wear (97 %); future_reason (12)"
+    )
+    reasons.append({"code": "long_reason_" + "x" * 300})
+    state = await refresh()
+    assert len(state.state) == 255
+    assert state.state.endswith("...")
+    assert len(state.attributes["reasons"][-1]["code"]) > 255
+
+
+@pytest.mark.parametrize("status", ["warning", "failing"])
+async def test_health_reason_missing_details_is_not_healthy(
+    hass, entry, aioclient_mock, entity_id, status
+):
+    payload = load_status()
+    payload["disks"][0]["health"] = {"status": status, "reasons": []}
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id(f"{HDD}_health_reason"))
+    assert state.state == f"{status.capitalize()} (reason not reported)"

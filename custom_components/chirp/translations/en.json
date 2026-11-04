@@ -454,6 +454,29 @@
             }
           }
         }
+      },
+      "health_reason": {
+        "name": "Health reason",
+        "state": {
+          "none": "No issues",
+          "warning": "Warning (reason not reported)",
+          "failing": "Failing (reason not reported)",
+          "smart_failed": "SMART check failed",
+          "nvme_critical_warning": "NVMe critical warning",
+          "spare_below_threshold": "Available spare below threshold",
+          "reallocated_sectors": "Reallocated sectors",
+          "pending_sectors": "Pending sectors",
+          "offline_uncorrectable": "Offline uncorrectable sectors",
+          "media_errors": "Media errors",
+          "wear_high": "High wear",
+          "temperature_high": "High temperature",
+          "not_read": "Not read"
+        },
+        "state_attributes": {
+          "reasons": {
+            "name": "Reasons"
+          }
+        }
       }
     },
     "binary_sensor": {
