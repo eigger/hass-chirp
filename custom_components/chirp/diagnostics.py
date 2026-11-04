@@ -12,6 +12,8 @@ from . import ChirpConfigEntry
 from .const import CONF_API_KEY, CONF_HOST
 
 TO_REDACT = {
+    "group_disabled_entities",
+    "path",
     CONF_API_KEY,
     CONF_HOST,
     "serial",

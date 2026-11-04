@@ -54,6 +54,7 @@ from .entity import (
     is_provisional_disk,
     register_forget_device,
 )
+from .groups import selected_entities
 
 PARALLEL_UPDATES = 0
 
@@ -288,6 +289,51 @@ def _any_scoped_section(status: dict[str, Any]) -> bool:
 _HOST_SCOPE = {"scope": SCOPE_HOST}
 
 METRIC_SENSORS: tuple[ChirpSensorDescription, ...] = (
+    ChirpSensorDescription(
+        key="memory_available",
+        translation_key="memory_available",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+        suggested_display_precision=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_section_value("memory", "availableBytes"),
+        exists_fn=_has_section("memory"),
+        available_fn=_has_section("memory"),
+        attrs_fn=_scope_attrs("memory"),
+    ),
+    *(
+        ChirpSensorDescription(
+            key=key,
+            translation_key=key,
+            device_class=SensorDeviceClass.DATA_SIZE,
+            native_unit_of_measurement=UnitOfInformation.BYTES,
+            suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+            suggested_display_precision=2,
+            state_class=SensorStateClass.MEASUREMENT,
+            entity_registry_enabled_default=False,
+            entity_category=EntityCategory.DIAGNOSTIC if key == "swap_total" else None,
+            value_fn=_section_value("memory", field),
+            exists_fn=_has_swap,
+            available_fn=_has_swap,
+            attrs_fn=_scope_attrs("memory"),
+        )
+        for key, field in (
+            ("swap_used", "swapUsedBytes"),
+            ("swap_total", "swapTotalBytes"),
+        )
+    ),
+    ChirpSensorDescription(
+        key="io_wait_percent",
+        translation_key="io_wait_percent",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=_section_value("load", "ioWaitPercent"),
+        exists_fn=lambda status: "ioWaitPercent" in (_section(status, "load") or {}),
+        available_fn=lambda status: "ioWaitPercent" in (_section(status, "load") or {}),
+        attrs_fn=_load_attrs,
+    ),
     # Where memory/load/network values come from
     ChirpSensorDescription(
         key="data_scope",
@@ -462,6 +508,21 @@ def _fan_spinning(fan: dict[str, Any]) -> bool:
 ITEM_SENSORS: tuple[
     tuple[ChirpItemSensorDescription, Callable[[dict[str, Any]], bool] | None], ...
 ] = (
+    (
+        ChirpItemSensorDescription(
+            key="hardware_temperature",
+            translation_key="hardware_temperature",
+            collection="temperatures",
+            field="temp",
+            label_words=("temperature", "temp"),
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=1,
+            entity_registry_enabled_default=False,
+        ),
+        None,
+    ),
     # Each power source (RAPL zone, hwmon power reading)
     (
         ChirpItemSensorDescription(
@@ -722,6 +783,28 @@ def _count_description(
 
 
 DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
+    ChirpDiskSensorDescription(
+        key="last_read_at",
+        translation_key="last_read_at",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda disk: dt_util.parse_datetime(str(disk.get("lastReadAt") or "")),
+    ),
+    ChirpDiskSensorDescription(
+        key="read_error",
+        translation_key="read_error",
+        device_class=SensorDeviceClass.ENUM,
+        options=["none", "open_failed", "timeout", "parse_error"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        value_fn=lambda disk: (
+            disk.get("error")
+            if disk.get("error") in ("open_failed", "timeout", "parse_error")
+            else "none"
+            if disk.get("error") is None and disk.get("lastReadAt")
+            else None
+        ),
+    ),
     # Disk temperature
     ChirpDiskSensorDescription(
         key="temperature",
@@ -855,6 +938,84 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
 )
 
 
+def _storage_descriptions(status: dict[str, Any]) -> list[ChirpSensorDescription]:
+    """Expose optional storage arrays on the host using stable server identities."""
+    descriptions: list[ChirpSensorDescription] = []
+    for collection, prefix, label_field in (
+        ("filesystems", "filesystem", "path"),
+        ("zfs_pools", "zfs_pool", "name"),
+    ):
+        for item in COLLECTIONS[collection](status):
+
+            def current(
+                data: dict[str, Any], name: str = collection, item_id: str = item["id"]
+            ) -> dict[str, Any]:
+                return next(
+                    (
+                        value
+                        for value in COLLECTIONS[name](data)
+                        if value["id"] == item_id
+                    ),
+                    {},
+                )
+
+            fields = [
+                ("used_percent", "usedPercent"),
+                ("used", "usedBytes"),
+                ("total", "totalBytes"),
+            ]
+            fields.append(
+                ("available", "availableBytes")
+                if prefix == "filesystem"
+                else ("free", "freeBytes")
+            )
+            if prefix == "zfs_pool":
+                fields.append(("health", "health"))
+            for key, field in fields:
+                is_percent = key == "used_percent"
+                is_health = key == "health"
+                descriptions.append(
+                    ChirpSensorDescription(
+                        key=f"{prefix}_{item['id']}_{key}",
+                        translation_key=f"{prefix}_{key}",
+                        placeholders={
+                            "label": str(item.get(label_field) or item["id"])
+                        },
+                        value_fn=lambda data, find=current, name=field: (
+                            find(data).get(name)
+                            if name == "health"
+                            else _number(find(data).get(name))
+                        ),
+                        available_fn=lambda data, find=current: bool(find(data)),
+                        attrs_fn=lambda data, find=current: {
+                            k: find(data)[k]
+                            for k in ("scope", "path", "name")
+                            if k in find(data)
+                        },
+                        device_class=None
+                        if is_percent or is_health
+                        else SensorDeviceClass.DATA_SIZE,
+                        native_unit_of_measurement=None
+                        if is_health
+                        else PERCENTAGE
+                        if is_percent
+                        else UnitOfInformation.BYTES,
+                        suggested_unit_of_measurement=None
+                        if is_percent or is_health
+                        else UnitOfInformation.GIBIBYTES,
+                        state_class=None if is_health else SensorStateClass.MEASUREMENT,
+                        suggested_display_precision=None
+                        if is_health
+                        else 1
+                        if is_percent
+                        else 2,
+                        entity_registry_enabled_default=key
+                        in ("used_percent", "available", "health"),
+                    )
+                )
+    return descriptions
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ChirpConfigEntry,
@@ -893,6 +1054,7 @@ async def async_setup_entry(
             *HOST_SENSORS,
             *_core_descriptions(status),
             *METRIC_SENSORS,
+            *_storage_descriptions(status),
         ):
             unique_id = f"{instance_id}_{host_description.key}"
             if unique_id not in known and host_description.exists_fn(status):
@@ -928,7 +1090,7 @@ async def async_setup_entry(
                         )
                     )
         if new:
-            async_add_entities(new)
+            async_add_entities(selected_entities(entry, new))
 
     # Fetch errors are always present, independent of what the server reports.
     async_add_entities([ChirpFetchErrorSensor(coordinator, entry)])

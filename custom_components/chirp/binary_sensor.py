@@ -11,6 +11,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -26,6 +27,7 @@ from .entity import (
     is_provisional_disk,
     register_forget_device,
 )
+from .groups import selected_entities
 from .sensor import _health_reasons, _health_status
 
 PARALLEL_UPDATES = 0
@@ -67,6 +69,28 @@ HOST_BINARY_SENSORS: tuple[ChirpBinarySensorDescription, ...] = (
 )
 
 DISK_BINARY_SENSORS: tuple[ChirpDiskBinarySensorDescription, ...] = (
+    ChirpDiskBinarySensorDescription(
+        key="read_problem",
+        translation_key="read_problem",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        is_on_fn=lambda disk: (
+            True
+            if disk.get("error") is not None
+            else False
+            if disk.get("lastReadAt")
+            else None
+        ),
+    ),
+    ChirpDiskBinarySensorDescription(
+        key="standby",
+        translation_key="standby",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+        is_on_fn=lambda disk: (
+            disk.get("standby") if isinstance(disk.get("standby"), bool) else None
+        ),
+    ),
     ChirpDiskBinarySensorDescription(
         key="smart_problem",
         translation_key="smart_problem",
@@ -149,7 +173,7 @@ async def async_setup_entry(
                         )
                     )
         if new:
-            async_add_entities(new)
+            async_add_entities(selected_entities(entry, new))
 
     register_forget_device(
         entry,

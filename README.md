@@ -29,6 +29,9 @@ A **read-only** Home Assistant custom integration for [Chirp](https://github.com
 - Disks and network interfaces that appear later are added automatically; ones that vanish become unavailable
 - Last known values ride out brief outages; after 3 failed polls in a row the entities become unavailable until Chirp answers again. A consecutive error counter stays available for diagnosis
 
+
+Sensor groups (CPU, RAM, SMART, Network, Hardware, Storage) can be selected during setup and changed in Configure or Reconfigure. Additional memory/SMART diagnostics work with existing servers; generic temperatures, I/O wait and filesystem/ZFS sensors use optional fields from [Chirp server PR #7](https://github.com/eigger/chirp/pull/7). See [sensor group details](docs/user-guide.md#choosing-sensor-groups).
+
 ## Requirements
 
 Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eigger/chirp) server and its API key. Uses local HTTP/HTTPS polling; no Bluetooth is needed.

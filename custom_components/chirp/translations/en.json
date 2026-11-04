@@ -3,13 +3,19 @@
     "step": {
       "user": {
         "title": "Connect to Chirp",
-        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_. Find it in the Chirp dashboard under Settings → API key, or run key show on the Chirp server (see the documentation).",
+        "description": "Enter the address and port of your Chirp server and an API key. The key starts with chp_. Find it in the Chirp dashboard under Settings → API key, or run key show on the Chirp server (see the documentation). Select the sensor groups to add. You can change these later in Configure or Reconfigure. This controls Home Assistant entities; server-side collection is configured on Chirp.",
         "data": {
           "host": "Host",
           "port": "Port",
           "api_key": "API key",
           "ssl": "Use HTTPS",
-          "verify_ssl": "Verify SSL certificate"
+          "verify_ssl": "Verify SSL certificate",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM and swap",
+          "monitor_smart": "Disks and SMART",
+          "monitor_network": "Network",
+          "monitor_hardware": "Hardware temperature, power, fans and voltage",
+          "monitor_storage": "Filesystems and ZFS"
         },
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
@@ -31,12 +37,18 @@
       },
       "reconfigure": {
         "title": "Reconfigure Chirp",
-        "description": "Change the address of this Chirp server. The stored API key is reused and the server must be the same instance.",
+        "description": "Change the address of this Chirp server. The stored API key is reused and the server must be the same instance. Select the sensor groups to add. You can change these later in Configure or Reconfigure. This controls Home Assistant entities; server-side collection is configured on Chirp.",
         "data": {
           "host": "Host",
           "port": "Port",
           "ssl": "Use HTTPS",
-          "verify_ssl": "Verify SSL certificate"
+          "verify_ssl": "Verify SSL certificate",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM and swap",
+          "monitor_smart": "Disks and SMART",
+          "monitor_network": "Network",
+          "monitor_hardware": "Hardware temperature, power, fans and voltage",
+          "monitor_storage": "Filesystems and ZFS"
         },
         "data_description": {
           "host": "IP address or host name of the Chirp server, without http:// or a path.",
@@ -64,9 +76,15 @@
     "step": {
       "init": {
         "title": "Chirp options",
-        "description": "Choose how often Home Assistant polls Chirp.",
+        "description": "Choose how often Home Assistant polls Chirp. Select the sensor groups to add. You can change these later in Configure or Reconfigure. This controls Home Assistant entities; server-side collection is configured on Chirp.",
         "data": {
-          "scan_interval": "Update interval (seconds)"
+          "scan_interval": "Update interval (seconds)",
+          "monitor_cpu": "CPU",
+          "monitor_ram": "RAM and swap",
+          "monitor_smart": "Disks and SMART",
+          "monitor_network": "Network",
+          "monitor_hardware": "Hardware temperature, power, fans and voltage",
+          "monitor_storage": "Filesystems and ZFS"
         },
         "data_description": {
           "scan_interval": "Between 30 and 3600 seconds. Chirp itself refreshes SMART data on its own schedule."
@@ -477,6 +495,60 @@
             "name": "Reasons"
           }
         }
+      },
+      "memory_available": {
+        "name": "Available memory"
+      },
+      "swap_used": {
+        "name": "Swap used size"
+      },
+      "swap_total": {
+        "name": "Total swap"
+      },
+      "io_wait_percent": {
+        "name": "I/O wait"
+      },
+      "hardware_temperature": {
+        "name": "{label} temperature"
+      },
+      "last_read_at": {
+        "name": "Last successful SMART read"
+      },
+      "read_error": {
+        "name": "SMART read error",
+        "state": {
+          "none": "None",
+          "open_failed": "Open failed",
+          "timeout": "Timeout",
+          "parse_error": "Parse error"
+        }
+      },
+      "filesystem_used_percent": {
+        "name": "{label} filesystem usage"
+      },
+      "filesystem_used": {
+        "name": "{label} filesystem used"
+      },
+      "filesystem_total": {
+        "name": "{label} filesystem total"
+      },
+      "filesystem_available": {
+        "name": "{label} filesystem available"
+      },
+      "zfs_pool_used_percent": {
+        "name": "{label} ZFS pool usage"
+      },
+      "zfs_pool_used": {
+        "name": "{label} ZFS pool used"
+      },
+      "zfs_pool_total": {
+        "name": "{label} ZFS pool total"
+      },
+      "zfs_pool_free": {
+        "name": "{label} ZFS pool free"
+      },
+      "zfs_pool_health": {
+        "name": "{label} ZFS pool health"
       }
     },
     "binary_sensor": {
@@ -518,6 +590,12 @@
             }
           }
         }
+      },
+      "read_problem": {
+        "name": "SMART collection problem"
+      },
+      "standby": {
+        "name": "Standby"
       }
     },
     "button": {

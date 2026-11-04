@@ -93,3 +93,21 @@ async def test_diagnostics_without_host_metrics(hass, entry, aioclient_mock):
     await hass.async_block_till_done()
     result = await async_get_config_entry_diagnostics(hass, entry)
     assert result["status"]["network"] is None
+
+
+async def test_diagnostics_redacts_storage_paths_and_group_registry_ids(
+    hass, entry, aioclient_mock
+):
+    payload = load_status()
+    payload["filesystems"][0]["path"] = "/srv/private-mount"
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "group_disabled_entities": [HDD_ID]}
+    )
+    aioclient_mock.get(STATUS_URL, json=payload)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await async_get_config_entry_diagnostics(hass, entry)
+    assert result["status"]["filesystems"][0]["path"] == REDACTED
+    dump = json.dumps(result)
+    assert "/srv/private-mount" not in dump
+    assert HDD_ID not in dump

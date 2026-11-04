@@ -24,6 +24,10 @@ INTERFACE_SENSOR_KEYS = (
 )
 METRIC_KEYS = (
     "data_scope",
+    "memory_available",
+    "swap_used",
+    "swap_total",
+    "io_wait_percent",
     "memory_used_percent",
     "memory_used",
     "memory_total",
@@ -35,6 +39,7 @@ METRIC_KEYS = (
     "package_power",
 )
 SAMPLE_LIST_KEYS = (
+    "hardware_temperature_temp_0011223344556677",
     "power_source_rapl_package_0",
     "power_source_rapl_package_0_core",
     "power_source_rapl_package_0_uncore",
@@ -47,6 +52,8 @@ SAMPLE_LIST_KEYS = (
 DISABLED_BY_DEFAULT = (
     "memory_used",
     "memory_total",
+    "swap_used",
+    "swap_total",
     "load_5m",
     "load_15m",
     "power_source_rapl_package_0",
@@ -76,6 +83,7 @@ def _metric_unique_ids(hass, entry):
     """Return the unique IDs of every host metric and interface entity."""
     prefixes = (
         *(f"{INSTANCE_ID}_{key}" for key in METRIC_KEYS),
+        f"{INSTANCE_ID}_hardware_temperature_",
         f"{INSTANCE_ID}_power_source_",
         f"{INSTANCE_ID}_fan_",
         f"{INSTANCE_ID}_voltage_",
@@ -309,7 +317,7 @@ async def test_container_scope_fixture(
 ):
     await _setup_all_enabled(hass, entry, aioclient_mock, "status_container_scope.json")
     expected = {
-        *(f"{INSTANCE_ID}_{key}" for key in METRIC_KEYS),
+        *(f"{INSTANCE_ID}_{key}" for key in METRIC_KEYS if key != "io_wait_percent"),
         f"{INSTANCE_ID}_power_source_rapl_package_0",
         *(f"{NET}_eth0_{key}" for key in (*INTERFACE_SENSOR_KEYS, "link")),
     }

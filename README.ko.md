@@ -29,6 +29,9 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스�
 - 나중에 나타난 디스크·네트워크 인터페이스는 자동 추가, 사라진 것은 사용 불가로 표시
 - 짧은 장애 동안은 마지막 값을 유지하고, 연속 3회 조회에 실패하면 Chirp가 다시 응답할 때까지 엔티티를 사용할 수 없음으로 표시. 연속 오류 횟수 센서는 진단용으로 계속 표시
 
+
+처음 설정할 때 CPU·RAM·SMART·네트워크·하드웨어·스토리지 그룹을 체크박스로 선택하며, 구성 또는 재구성에서 변경할 수 있습니다. 가용 메모리·SMART 진단은 기존 서버에서도 동작하고, 범용 온도·I/O 대기율·파일시스템·ZFS 센서는 [Chirp 서버 PR #7](https://github.com/eigger/chirp/pull/7)의 선택적 API 필드를 사용합니다. [센서 그룹 안내](docs/ko/user-guide.md#센서-그룹-선택)
+
 ## 요구사항
 
 Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/eigger/chirp) 서버와 API 키가 필요합니다. 로컬 HTTP/HTTPS 폴링만 사용하며 Bluetooth는 필요 없습니다.
