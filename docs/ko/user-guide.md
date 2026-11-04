@@ -179,4 +179,4 @@ actions:
 
 I/O 대기율·안정적인 온도 ID·스토리지 필드는 [서버 PR #7](https://github.com/eigger/chirp/pull/7)의 API 확장이 필요합니다. 가용 메모리·SMART 진단은 이전 서버에서도 동작합니다. 선택적 배열이 없으면 엔티티를 생성하지 않습니다. 한 번 발견한 항목이 사라지면 사용 불가, 다시 나타나면 같은 ID로 복구합니다. 개별 값이 읽히지 않으면 알 수 없음입니다. ZFS 건강 상태는 `ONLINE`, `DEGRADED` 등 서버 원본 상태를 표시합니다.
 
-파일시스템·ZFS 수집은 서버에서 별도로 켭니다. Chirp에 `CHIRP_FILESYSTEM_PATHS=/,/data`, `CHIRP_ZFS_ENABLED=true` 등을 설정하고 재시작하세요. 컨테이너에서 호스트 경로를 읽으려면 명시적인 읽기 전용 루트 마운트와 `CHIRP_HOST_ROOT`도 필요하며, 그렇지 않으면 파일시스템 관점은 컨테이너입니다. [서버 API 계약](https://github.com/eigger/chirp/blob/codex/host-storage-api/docs/api.md#additional-host-and-storage-metrics)을 참고하세요. ZFS 풀 여유 용량은 데이터셋 가용 공간과 다릅니다. 범용 하드웨어 온도에 SMART 디스크 온도와 중복되는 값이 포함될 수 있으므로 필요한 항목만 활성화하세요.
+파일시스템·ZFS 수집은 서버에서 별도로 켭니다. Chirp에 `CHIRP_FILESYSTEM_PATHS=/,/data`, `CHIRP_ZFS_ENABLED=true` 등을 설정하고 재시작하세요. 컨테이너에서 호스트 경로를 읽으려면 명시적인 읽기 전용 루트 마운트와 `CHIRP_HOST_ROOT`도 필요하며, 그렇지 않으면 파일시스템 관점은 컨테이너입니다. [서버 API 계약](https://github.com/eigger/chirp/blob/master/docs/api.md#additional-host-and-storage-metrics)을 참고하세요. ZFS 풀 여유 용량은 데이터셋 가용 공간과 다릅니다. 범용 하드웨어 온도에 SMART 디스크 온도와 중복되는 값이 포함될 수 있으므로 필요한 항목만 활성화하세요.
