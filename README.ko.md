@@ -1,5 +1,5 @@
 <!-- hass-standards:header:start -->
-# Chirp Home Assistant Integration (hass-chirp)
+# Chirp for Home Assistant
 
 Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스트 메모리·부하·네트워크·전력·팬·전압 지표를 읽기 전용으로 연결하는 Home Assistant 커스텀 통합입니다.
 
@@ -34,7 +34,9 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스�
 
 ## 요구사항
 
-Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/eigger/chirp) 서버와 API 키가 필요합니다. 로컬 HTTP/HTTPS 폴링만 사용하며 Bluetooth는 필요 없습니다.
+- **Home Assistant:** 2025.3.0 이상.
+- **서버:** 로컬 HTTP 또는 HTTPS로 접속할 수 있는 [Chirp](https://github.com/eigger/chirp) 서버.
+- **API 키:** Chirp API 키.
 
 ## 설치
 
@@ -42,15 +44,20 @@ Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eigger&repository=hass-chirp&category=integration)
 <!-- hass-standards:installation:end -->
 
+1. 위 배지를 클릭해 마켓플레이스에서 저장소를 엽니다.
+2. 저장소를 직접 추가하려면 **설정 → 마켓플레이스 → 링크에서 추가**에서 <https://github.com/eigger/hass-chirp>을 입력합니다. 안내가 표시되면 GitHub 계정을 연결합니다.
+3. **설치**를 선택합니다. 재시작 안내가 표시되면 Home Assistant를 재시작합니다. 설치가 끝나면 [설정](#설정)으로 이동합니다.
+
+## 설정
+
 1. 모니터링할 장비에 Chirp를 설치합니다. Proxmox VE에서는 원클릭 스크립트가 컨테이너를 만들어 줍니다.
 
    ```sh
    bash -c "$(curl -fsSL https://raw.githubusercontent.com/eigger/chirp/master/proxmox/ct/chirp.sh)"
    ```
 
-2. HACS에서 `eigger/hass-chirp`를 사용자 지정 **Integration** 저장소로 추가하고 **Chirp** 를 설치한 뒤 Home Assistant를 재시작합니다.
-3. **설정 → 기기 및 서비스 → 통합 추가 → Chirp** 로 이동합니다.
-4. Chirp의 **주소**(IP 또는 이름), **포트**(기본 `80`), **API 키**를 입력합니다. Chirp를 HTTPS로 제공할 때만 *HTTPS 사용*을 켜고, 신뢰하는 서버의 자체 서명 인증서일 때만 *SSL 인증서 확인*을 끕니다.
+2. **설정 → 기기 및 서비스 → 통합 추가 → Chirp** 로 이동합니다.
+3. Chirp의 **주소**(IP 또는 이름), **포트**(기본 `80`), **API 키**를 입력합니다. Chirp를 HTTPS로 제공할 때만 *HTTPS 사용*을 켜고, 신뢰하는 서버의 자체 서명 인증서일 때만 *SSL 인증서 확인*을 끕니다.
 
 ### API 키 확인 방법
 

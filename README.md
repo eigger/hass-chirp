@@ -1,5 +1,5 @@
 <!-- hass-standards:header:start -->
-# Chirp Home Assistant Integration (hass-chirp)
+# Chirp for Home Assistant
 
 A read-only Home Assistant custom integration that shows Chirp disk SMART health, disk and CPU temperatures, and host memory, load, network, power, fan and voltage metrics.
 
@@ -34,7 +34,9 @@ Sensor groups (CPU, RAM, SMART, Network, Hardware, Storage) can be selected duri
 
 ## Requirements
 
-Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eigger/chirp) server and its API key. Uses local HTTP/HTTPS polling; no Bluetooth is needed.
+- **Home Assistant:** 2025.3.0 or later.
+- **Server:** A reachable [Chirp](https://github.com/eigger/chirp) server over local HTTP or HTTPS.
+- **API key:** A Chirp API key.
 
 ## Installation
 
@@ -42,15 +44,20 @@ Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eig
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=eigger&repository=hass-chirp&category=integration)
 <!-- hass-standards:installation:end -->
 
+1. Click the badge above to open the repository in Marketplace.
+2. If you need to add it yourself, go to **Settings → Marketplace → Add from link** and enter <https://github.com/eigger/hass-chirp>. Connect GitHub if prompted.
+3. Select **Install**. Restart Home Assistant if prompted, then continue to [Configuration](#configuration).
+
+## Configuration
+
 1. Install Chirp on the machine you want to monitor. On Proxmox VE, the one-click script creates a container for you:
 
    ```sh
    bash -c "$(curl -fsSL https://raw.githubusercontent.com/eigger/chirp/master/proxmox/ct/chirp.sh)"
    ```
 
-2. Add `eigger/hass-chirp` as a custom **Integration** repository in HACS, install **Chirp** and restart Home Assistant.
-3. Go to **Settings → Devices & services → Add integration → Chirp**.
-4. Enter the Chirp **host** (IP address or name), **port** (default `80`) and **API key**. Tick *Use HTTPS* only if Chirp is served over HTTPS; untick *Verify SSL certificate* only for a self-signed certificate on a server you trust.
+2. Go to **Settings → Devices & services → Add integration → Chirp**.
+3. Enter the Chirp **host** (IP address or name), **port** (default `80`) and **API key**. Tick *Use HTTPS* only if Chirp is served over HTTPS; untick *Verify SSL certificate* only for a self-signed certificate on a server you trust.
 
 ### Getting the API key
 
