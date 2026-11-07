@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
@@ -11,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import ChirpApi
@@ -27,7 +29,20 @@ from .coordinator import ChirpCoordinator, scan_interval_from_options
 from .entity import INTERFACE_DEVICE_INFIX, host_device_info
 from .groups import group_options, sync_group_registry
 
+_LOGGER = logging.getLogger(__name__)
+
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
+
+# Entities earlier releases created that are gone now: (platform, unique ID suffix).
+# "Any disk problem" on the host duplicated every disk's own SMART problem sensor,
+# and the host's SMART refresh button moved to each disk device;
+# each disk's "Last successful SMART read" timestamp (logged every SMART cycle) is
+# now the `last_read_at` attribute of its "SMART collection problem" sensor.
+_RETIRED_HOST_ENTITIES = (
+    (Platform.BINARY_SENSOR, "any_disk_problem"),
+    (Platform.BUTTON, "refresh_smart"),
+)
+_RETIRED_DISK_ENTITIES = ((Platform.SENSOR, "last_read_at"),)
 
 
 @dataclass
@@ -66,6 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> boo
     entry.runtime_data = ChirpRuntimeData(
         coordinator, sensor_groups=group_options(dict(entry.options))
     )
+    _remove_retired_entities(hass, entry, coordinator.instance_id)
     sync_group_registry(hass, entry, coordinator.instance_id)
 
     # Disk devices reference the host through via_device, so create it first.
@@ -148,3 +164,26 @@ async def async_remove_config_entry_device(
         runtime_data.pending_device_removals[device_entry.id] = (kind, child)
         return True
     return False
+
+
+@callback
+def _remove_retired_entities(
+    hass: HomeAssistant, entry: ConfigEntry, instance_id: str
+) -> None:
+    """Drop registry entries of entities this integration no longer creates."""
+    registry = er.async_get(hass)
+    retired_host = {
+        f"{instance_id}_{key}": domain for domain, key in _RETIRED_HOST_ENTITIES
+    }
+    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if retired_host.get(entity.unique_id) == entity.domain or any(
+            entity.domain == domain
+            and entity.unique_id.startswith(f"{instance_id}_")
+            and entity.unique_id.endswith(f"_{key}")
+            for domain, key in _RETIRED_DISK_ENTITIES
+        ):
+            _LOGGER.warning(
+                "Removing %s: this entity was retired (see the release notes)",
+                entity.entity_id,
+            )
+            registry.async_remove(entity.entity_id)

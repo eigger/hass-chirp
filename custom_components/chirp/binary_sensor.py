@@ -17,10 +17,9 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import ChirpConfigEntry
 from .const import HEALTH_FAILING, HEALTH_OK, HEALTH_WARNING
-from .coordinator import ChirpCoordinator, network_interfaces
+from .coordinator import network_interfaces
 from .entity import (
     ChirpDiskEntity,
-    ChirpEntity,
     ChirpInterfaceEntity,
     disk_unique_id,
     interface_unique_id,
@@ -33,13 +32,6 @@ from .sensor import _health_reasons, _health_status
 PARALLEL_UPDATES = 0
 
 _PROBLEM_STATES = (HEALTH_WARNING, HEALTH_FAILING)
-
-
-@dataclass(frozen=True, kw_only=True)
-class ChirpBinarySensorDescription(BinarySensorEntityDescription):
-    """Describe a host-level binary sensor."""
-
-    is_on_fn: Callable[[dict[str, Any]], bool | None]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -57,17 +49,6 @@ def _disk_problem(disk: dict[str, Any]) -> bool | None:
     return False if status == HEALTH_OK else None
 
 
-HOST_BINARY_SENSORS: tuple[ChirpBinarySensorDescription, ...] = (
-    ChirpBinarySensorDescription(
-        key="any_disk_problem",
-        translation_key="any_disk_problem",
-        device_class=BinarySensorDeviceClass.PROBLEM,
-        is_on_fn=lambda status: any(
-            _disk_problem(disk) is True for disk in status["disks"]
-        ),
-    ),
-)
-
 DISK_BINARY_SENSORS: tuple[ChirpDiskBinarySensorDescription, ...] = (
     ChirpDiskBinarySensorDescription(
         key="read_problem",
@@ -81,6 +62,8 @@ DISK_BINARY_SENSORS: tuple[ChirpDiskBinarySensorDescription, ...] = (
             if disk.get("lastReadAt")
             else None
         ),
+        # Kept as an attribute: a timestamp sensor would log every SMART cycle.
+        attrs_fn=lambda disk: {"last_read_at": disk.get("lastReadAt")},
     ),
     ChirpDiskBinarySensorDescription(
         key="standby",
@@ -141,11 +124,6 @@ async def async_setup_entry(
         status = coordinator.data
         instance_id = coordinator.instance_id
         new: list[BinarySensorEntity] = []
-        for host_description in HOST_BINARY_SENSORS:
-            unique_id = f"{instance_id}_{host_description.key}"
-            if unique_id not in known:
-                known.add(unique_id)
-                new.append(ChirpHostBinarySensor(coordinator, entry, host_description))
         for disk in status["disks"]:
             if is_provisional_disk(disk):
                 continue
@@ -183,25 +161,6 @@ async def async_setup_entry(
     )
     _add_new_entities()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
-
-
-class ChirpHostBinarySensor(ChirpEntity, BinarySensorEntity):
-    """A binary sensor describing the monitored host."""
-
-    entity_description: ChirpBinarySensorDescription
-
-    def __init__(
-        self,
-        coordinator: ChirpCoordinator,
-        entry: ChirpConfigEntry,
-        description: ChirpBinarySensorDescription,
-    ) -> None:
-        super().__init__(coordinator, entry, description)
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return True when any disk reports a problem."""
-        return self.entity_description.is_on_fn(self.status)
 
 
 class ChirpDiskBinarySensor(ChirpDiskEntity, BinarySensorEntity):

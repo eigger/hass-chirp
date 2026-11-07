@@ -19,9 +19,12 @@ async def test_existing_api_memory_and_smart_values(
     memory = hass.states.get(entity_id(f"{INSTANCE_ID}_memory_available"))
     assert float(memory.state) == 41875931136 / 1024**3
     assert memory.attributes["scope"] == "host"
-    read_id = entity_id(f"{INSTANCE_ID}_{HDD_ID}_last_read_at")
     problem_id = entity_id(f"{INSTANCE_ID}_{HDD_ID}_read_problem", "binary_sensor")
-    assert hass.states.get(read_id).state == "2026-11-03T09:58:00+00:00"
+
+    def last_read():
+        return hass.states.get(problem_id).attributes["last_read_at"]
+
+    assert last_read() == "2026-11-03T09:58:00Z"
     assert hass.states.get(problem_id).state == "off"
     payload = load_status()
     payload["disks"][0]["standby"] = True
@@ -31,12 +34,12 @@ async def test_existing_api_memory_and_smart_values(
     await _refresh(hass, entry, aioclient_mock, payload)
     assert hass.states.get(problem_id).state == "on"
     # A failed attempt must not masquerade as a successful read.
-    assert hass.states.get(read_id).state == "2026-11-03T09:58:00+00:00"
+    assert last_read() == "2026-11-03T09:58:00Z"
     payload["disks"][0]["error"] = None
     payload["disks"][0]["lastReadAt"] = None
     await _refresh(hass, entry, aioclient_mock, payload)
     assert hass.states.get(problem_id).state == "unknown"
-    assert hass.states.get(read_id).state == "unknown"
+    assert last_read() is None
 
 
 async def test_optional_storage_appears_disappears_and_recovers(

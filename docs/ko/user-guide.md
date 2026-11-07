@@ -52,24 +52,24 @@ Chirp 인스턴스마다 고유 ID가 있습니다. 같은 인스턴스를 다�
 | `<코어>` 온도 | CPU 코어별, 기본 비활성. 코어 레이블로 식별하므로(`Core 0` → `..._cpu_core_temperature_core_0`) 서버가 코어 순서를 바꿔도 값이 같은 엔티티에 남습니다. 같은 레이블이 반복되면 `_2`, `_3`…을 붙이고, 레이블이 없는 코어는 위치(`index_<n>`)를 씁니다 |
 | 부팅 시각 | 진단용; 수집 시각 − 가동 시간 |
 | 연속 조회 오류 | 진단용; Chirp가 꺼져 있어도 사용 가능 상태 유지; 속성 `last_error`, `last_error_at`, `last_success_at` |
-| 디스크 문제 있음 | 문제 센서; 디스크 하나라도 `warning`/`failing`이면 켜짐 |
-| SMART 데이터 새로고침 | 버튼; Chirp에 SMART를 지금 다시 읽도록 요청한 뒤 몇 번 더 조회해 결과를 반영 |
 
 **디스크 기기**(디스크마다 하나, 이름은 `모델 (시리얼 뒤 4자리)`, 호스트에 연결):
 
 | 엔티티 | 비고 |
 |---|---|
 | 온도 | 대기 모드에서도 마지막 값 유지; 속성 `standby` |
+| 수명 중 최저/최고 온도, 전원 켜진 후 최저/최고 온도, 최대 동작 온도 | °C, 진단용; 디스크가 기록하는 경우에만(SATA SCT Status / Device Statistics, NVMe는 경고 임계값인 최대 동작 온도만). Chirp 0.3.2 이상 필요 |
 | 전원 켜짐 시간 | 누적 증가 |
+| SMART 데이터 새로고침 | 버튼; Chirp에 SMART를 지금 다시 읽도록 요청한 뒤 몇 번 더 조회해 결과를 반영. Chirp는 디스크를 한 번에 모두 읽으므로 어느 디스크의 버튼을 눌러도 전체가 새로고침됨(잠든 디스크는 깨우지 않음) |
 | 전원 켜짐 횟수 | 진단용 |
 | 건강 상태 | `ok`, `warning`, `failing`; Chirp가 판정을 내리지 못하면 Home Assistant의 *알 수 없음*; 속성 `reasons` |
 | 건강 상태 사유 | 원인을 상태값으로 표시(예: `온도 높음 (70 °C)`); 전체 원본은 속성 `reasons` |
 | SMART 문제 | 문제 센서; `warning`/`failing`이면 켜짐; 속성 `reasons`, `smart_passed` |
 | 재할당된 섹터, 대기 중 섹터 | SATA, 기본 활성 |
 | 오프라인 복구 불가 섹터, UDMA CRC 오류 | SATA, 진단용 |
-| 마모율 | SSD·NVMe, 사용한 수명 비율 |
+| 마모율 | SSD·NVMe, 사용한 수명 비율(SATA는 Device Statistics 내구성 지표가 있으면 그 값) |
 | 가용 예비 공간 | NVMe, % |
-| 누적 기록량 | NVMe, TB |
+| 누적 기록량 | NVMe, Device Statistics를 보고하는 SATA 디스크(SSD·HDD); TB |
 | 미디어 오류, 비정상 종료 | NVMe, 진단용 |
 
 **호스트 지표**(호스트 기기에 붙음. 이 지표를 보고하는 Chirp 서버에서만, 아래 참고):
@@ -126,22 +126,24 @@ Chirp는 기본적으로 물리 NIC·본드·브리지·VLAN을 나열하고 `ve
 ```yaml
 action: button.press
 target:
-  entity_id: button.pve_refresh_smart_data
+  entity_id: button.wdc_wd40efrx_c3d4_refresh_smart_data
 ```
 
 실제 설치에서 생성된 엔티티를 선택하세요. Chirp는 읽기 요청을 대기열에 넣고(HTTP 202) 백그라운드에서 실행하므로, 통합은 5초 간격으로 최대 6회 상태를 조회하고 디스크의 읽은 시각이 바뀐 뒤 더 이상 변하지 않으면 바로 멈춥니다. 다시 누르면 조회를 하나 더 늘리지 않고 처음부터 다시 시작합니다. Chirp는 새로고침 요청 횟수를 제한(HTTP 429)하며, 통합은 이를 성공으로 처리하고 데이터를 한 번 갱신합니다.
 
-디스크 위험을 알리는 자동화 예시:
+디스크 위험을 알리는 자동화 예시(디스크마다 있는 **SMART 문제** 센서를 나열):
 
 ```yaml
 triggers:
   - trigger: state
-    entity_id: binary_sensor.pve_any_disk_problem
+    entity_id:
+      - binary_sensor.wdc_wd40efrx_c3d4_smart_problem
+      - binary_sensor.samsung_ssd_970_evo_plus_9a1b_smart_problem
     to: "on"
 actions:
   - action: notify.notify
     data:
-      message: 디스크에서 SMART 문제가 보고되었습니다.
+      message: "{{ trigger.to_state.name }}에서 SMART 문제가 보고되었습니다."
 ```
 
 ## 제한 사항과 문제 해결
@@ -170,8 +172,7 @@ actions:
 | 스왑 사용량·전체량 | 비활성; 스왑이 있는 경우만; GiB |
 | I/O 대기율 | 서버가 `load.ioWaitPercent`를 제공하면 활성; %, scope·CPU 개수 속성 |
 | 하드웨어 온도 | `sensors[].id`별 기본 비활성. 안정적인 ID가 없는 이전 서버에서는 생성하지 않음 |
-| 마지막 SMART 정상 수집 | 디스크별 진단 타임스탬프, 활성; 대기·읽기 실패 중에도 마지막 정상 시각 유지 |
-| SMART 수집 문제 | 진단 문제 이진 센서, 활성; 읽기 오류가 있으면 켜짐. 아직 읽지 않은 디스크는 알 수 없음 |
+| SMART 수집 문제 | 진단 문제 이진 센서, 활성; 읽기 오류가 있으면 켜짐. 아직 읽지 않은 디스크는 알 수 없음. 속성 `last_read_at`: 마지막 SMART 정상 수집 시각, 대기·읽기 실패 중에도 유지(속성이라 로그북에 쌓이지 않음) |
 | SMART 읽기 오류 | 진단 열거형, 비활성; 없음·장치 열기 실패·시간 초과·해석 오류 |
 | 대기 모드 | 진단 이진 센서, 비활성; 잠든 디스크를 수집 장애로 취급하지 않음 |
 | 파일시스템 사용률·가용 용량 | 설정한 경로별 활성; 사용량·전체 용량은 비활성 |

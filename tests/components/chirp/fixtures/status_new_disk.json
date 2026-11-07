@@ -118,6 +118,13 @@
       "rotationRate": 0,
       "standby": false,
       "temperature": 31,
+      "temperatureStats": {
+        "powerCycleMin": null,
+        "powerCycleMax": 70,
+        "lifetimeMin": null,
+        "lifetimeMax": 75,
+        "operatingMax": 100
+      },
       "powerOnHours": 900,
       "powerCycleCount": 15,
       "smartPassed": true,
@@ -130,7 +137,9 @@
         "pendingSectors": 0,
         "offlineUncorrectable": 0,
         "udmaCrcErrors": 0,
-        "wearLevelPercentUsed": 12
+        "wearLevelPercentUsed": 12,
+        "bytesWritten": 1494576622080,
+        "bytesRead": 1676440835072
       },
       "nvme": null,
       "lastReadAt": "2026-11-03T09:58:00Z",

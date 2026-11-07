@@ -52,24 +52,24 @@ The integration creates only the entities the server actually reports. Disabled-
 | `<core>` temperature | One per CPU core, disabled by default. Identified by the core label (`Core 0` → `..._cpu_core_temperature_core_0`), so a server that lists cores in another order keeps each value on its entity; a repeated label gets `_2`, `_3`, … and a core without a label uses its position (`index_<n>`) |
 | Boot time | Diagnostic; collection time minus uptime |
 | Consecutive fetch errors | Diagnostic; stays available while Chirp is down; attributes `last_error`, `last_error_at`, `last_success_at` |
-| Any disk problem | Problem sensor; on when any disk is in `warning` or `failing` state |
-| Refresh SMART data | Button; asks Chirp to re-read SMART now, then follows the read with a few polls |
 
 **Disk devices** (one per disk, named `model (last four serial characters)`, attached to the host):
 
 | Entity | Notes |
 |---|---|
 | Temperature | Keeps the last value while the disk is in standby; attribute `standby` |
+| Lifetime minimum/maximum temperature, Minimum/maximum temperature since power-on, Maximum operating temperature | °C, diagnostic; only when the disk records them (SATA SCT Status / Device Statistics; NVMe reports only the maximum operating temperature, its warning threshold). Needs Chirp 0.3.2 or newer |
 | Power-on hours | Total increasing |
+| Refresh SMART data | Button; asks Chirp to re-read SMART now, then follows the read with a few polls. Chirp reads every disk in one pass, so any disk's button refreshes all disks (sleeping disks are still not woken) |
 | Power cycle count | Diagnostic |
 | Health | `ok`, `warning` or `failing`; Home Assistant's *unknown* when Chirp reports no verdict; attribute `reasons` |
 | Health reason | Actual reasons as state (e.g. `High temperature (70 °C)`); full raw details in `reasons` |
 | SMART problem | Problem sensor; on for `warning` or `failing`; attributes `reasons`, `smart_passed` |
 | Reallocated sectors, Pending sectors | SATA disks, enabled by default |
 | Offline uncorrectable sectors, UDMA CRC errors | SATA disks, diagnostic |
-| Wear | SSD and NVMe, percentage of life used |
+| Wear | SSD and NVMe, percentage of life used (SATA: Device Statistics endurance indicator when the disk has one) |
 | Available spare | NVMe, percent |
-| Data written | NVMe, TB |
+| Data written | NVMe, and SATA disks (SSD or HDD) that report Device Statistics; TB |
 | Media errors, Unsafe shutdowns | NVMe, diagnostic |
 
 **Host metrics** (on the host device; only from Chirp servers that report them, see below):
@@ -126,22 +126,24 @@ The `reasons` attribute lists objects with a `code` and an optional `value`. Cod
 ```yaml
 action: button.press
 target:
-  entity_id: button.pve_refresh_smart_data
+  entity_id: button.wdc_wd40efrx_c3d4_refresh_smart_data
 ```
 
 Select the actual entity created by your installation. Chirp queues the read (HTTP 202) and runs it in the background, so the integration polls the status every 5 seconds, at most 6 times, and stops as soon as the disks' read times have changed and settled. Pressing again restarts that follow-up instead of adding another one. Chirp rate-limits refreshes (HTTP 429); the integration treats that as success and refreshes its data once.
 
-Example automation that notifies about a failing disk:
+Example automation that notifies about a failing disk (list each disk's **SMART problem** sensor):
 
 ```yaml
 triggers:
   - trigger: state
-    entity_id: binary_sensor.pve_any_disk_problem
+    entity_id:
+      - binary_sensor.wdc_wd40efrx_c3d4_smart_problem
+      - binary_sensor.samsung_ssd_970_evo_plus_9a1b_smart_problem
     to: "on"
 actions:
   - action: notify.notify
     data:
-      message: A disk reported a SMART problem.
+      message: "{{ trigger.to_state.name }} reported a SMART problem."
 ```
 
 ## Limitations and troubleshooting
@@ -170,8 +172,7 @@ Deselecting a group stops adding its entities and disables its existing entities
 | Swap used / total | Disabled; only when swap is configured; GiB |
 | I/O wait | Enabled when the server reports `load.ioWaitPercent`; %, scope and CPU count |
 | Hardware temperatures | Disabled; one per `sensors[].id`. Older servers without stable IDs do not create these entities |
-| Last successful SMART read | Enabled diagnostic timestamp per disk; retained during standby and failed reads |
-| SMART collection problem | Enabled diagnostic problem binary sensor; errors turn it on, never-read disks remain unknown |
+| SMART collection problem | Enabled diagnostic problem binary sensor; errors turn it on, never-read disks remain unknown. Attribute `last_read_at`: time of the last successful SMART read, retained during standby and failed reads (an attribute, so it does not fill the logbook) |
 | SMART read error | Disabled diagnostic enum: none, open failed, timeout, parse error |
 | Standby | Disabled diagnostic binary sensor; sleeping does not count as a collection failure |
 | Filesystem usage / available bytes | Enabled per configured path; used and total bytes disabled |

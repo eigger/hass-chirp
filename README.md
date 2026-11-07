@@ -22,9 +22,9 @@ A **read-only** Home Assistant custom integration for [Chirp](https://github.com
 
 ## Features
 
-- One device for the monitored host (CPU temperature, boot time, "any disk problem" and a SMART refresh button) plus one device per disk
+- One device for the monitored host (CPU temperature, boot time) plus one device per disk with its SMART sensors and a SMART refresh button
 - Per-disk temperature (kept while the disk is in standby), power-on hours, health (`ok` / `warning` / `failing` with reasons; Home Assistant's *unknown* until Chirp has read the disk) and a SMART problem binary sensor
-- Protocol-specific counters: reallocated and pending sectors for SATA, wear, available spare, data written and media errors for SSD/NVMe
+- Protocol-specific counters: reallocated and pending sectors for SATA, wear, available spare and media errors for SSD/NVMe, data written for NVMe and SATA disks that report it
 - Host metrics from Chirp servers that report them: memory and swap usage, CPU usage and load, CPU package power, fan speeds and voltages, plus one device per network interface with receive/transmit rates, totals, link state and link speed. Each value carries a `scope` attribute that says whether it is the host's or the Chirp container's own view. Fans that were stopped when first seen start disabled; enable them in the entity settings ([details](docs/user-guide.md#supported-features-and-entities))
 - Disks and network interfaces that appear later are added automatically; ones that vanish become unavailable
 - Last known values ride out brief outages; after 3 failed polls in a row the entities become unavailable until Chirp answers again. A consecutive error counter stays available for diagnosis
@@ -74,7 +74,7 @@ Sensor groups (CPU, RAM, SMART, Network, Hardware, Storage) can be selected duri
 ```yaml
 action: button.press
 target:
-  entity_id: button.pve_refresh_smart_data
+  entity_id: button.wdc_wd40efrx_c3d4_refresh_smart_data
 ```
 
 Use the actual entity ID created by your installation. The button asks Chirp to re-read SMART data now and then polls a few more times (every 5 seconds, up to 30 seconds) until the new readings arrive; Chirp applies its own cooldown and the integration ignores it. Integration options let you change the polling interval (30–3600 seconds). [Troubleshooting](docs/user-guide.md#limitations-and-troubleshooting)

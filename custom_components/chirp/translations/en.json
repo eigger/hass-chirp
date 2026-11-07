@@ -117,6 +117,21 @@
           }
         }
       },
+      "temperature_lifetime_min": {
+        "name": "Lifetime minimum temperature"
+      },
+      "temperature_lifetime_max": {
+        "name": "Lifetime maximum temperature"
+      },
+      "temperature_power_cycle_min": {
+        "name": "Minimum temperature since power-on"
+      },
+      "temperature_power_cycle_max": {
+        "name": "Maximum temperature since power-on"
+      },
+      "temperature_operating_max": {
+        "name": "Maximum operating temperature"
+      },
       "power_on_hours": {
         "name": "Power-on hours"
       },
@@ -511,9 +526,6 @@
       "hardware_temperature": {
         "name": "{label} temperature"
       },
-      "last_read_at": {
-        "name": "Last successful SMART read"
-      },
       "read_error": {
         "name": "SMART read error",
         "state": {
@@ -552,9 +564,6 @@
       }
     },
     "binary_sensor": {
-      "any_disk_problem": {
-        "name": "Any disk problem"
-      },
       "smart_problem": {
         "name": "SMART problem",
         "state_attributes": {
@@ -592,7 +601,12 @@
         }
       },
       "read_problem": {
-        "name": "SMART collection problem"
+        "name": "SMART collection problem",
+        "state_attributes": {
+          "last_read_at": {
+            "name": "Last successful SMART read"
+          }
+        }
       },
       "standby": {
         "name": "Standby"
