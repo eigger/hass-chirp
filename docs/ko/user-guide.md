@@ -69,7 +69,7 @@ Chirp 인스턴스마다 고유 ID가 있습니다. 같은 인스턴스를 다�
 | 오프라인 복구 불가 섹터, UDMA CRC 오류 | SATA, 진단용 |
 | 마모율 | SSD·NVMe, 사용한 수명 비율(SATA는 Device Statistics 내구성 지표가 있으면 그 값) |
 | 가용 예비 공간 | NVMe, % |
-| 누적 기록량 | NVMe, Device Statistics가 있는 SATA SSD; TB |
+| 누적 기록량 | NVMe, Device Statistics를 보고하는 SATA 디스크(SSD·HDD); TB |
 | 미디어 오류, 비정상 종료 | NVMe, 진단용 |
 
 **호스트 지표**(호스트 기기에 붙음. 이 지표를 보고하는 Chirp 서버에서만, 아래 참고):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
@@ -27,6 +28,8 @@ from .const import (
 from .coordinator import ChirpCoordinator, scan_interval_from_options
 from .entity import INTERFACE_DEVICE_INFIX, host_device_info
 from .groups import group_options, sync_group_registry
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
@@ -175,4 +178,8 @@ def _remove_retired_entities(
             and entity.unique_id.endswith(f"_{key}")
             for domain, key in _RETIRED_DISK_ENTITIES
         ):
+            _LOGGER.warning(
+                "Removing %s: this entity was retired (see the release notes)",
+                entity.entity_id,
+            )
             registry.async_remove(entity.entity_id)

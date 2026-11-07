@@ -709,14 +709,16 @@ def _temperature_stat(disk: dict[str, Any], field: str) -> float | int | None:
     return _number(stats.get(field)) if isinstance(stats, dict) else None
 
 
-def _temperature_stat_description(key: str, field: str) -> ChirpDiskSensorDescription:
+def _temperature_stat_description(
+    key: str, field: str, *, measurement: bool = True
+) -> ChirpDiskSensorDescription:
     """Temperatures the disk records itself (SCT Status / Device Statistics)."""
     return ChirpDiskSensorDescription(
         key=key,
         translation_key=key,
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        state_class=SensorStateClass.MEASUREMENT,
+        state_class=SensorStateClass.MEASUREMENT if measurement else None,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda disk: _temperature_stat(disk, field),
         exists_fn=lambda disk: _temperature_stat(disk, field) is not None,
@@ -839,7 +841,10 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
     _temperature_stat_description("temperature_lifetime_max", "lifetimeMax"),
     _temperature_stat_description("temperature_power_cycle_min", "powerCycleMin"),
     _temperature_stat_description("temperature_power_cycle_max", "powerCycleMax"),
-    _temperature_stat_description("temperature_operating_max", "operatingMax"),
+    # A fixed rated limit: no long-term statistics.
+    _temperature_stat_description(
+        "temperature_operating_max", "operatingMax", measurement=False
+    ),
     # Power-on hours
     ChirpDiskSensorDescription(
         key="power_on_hours",

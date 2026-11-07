@@ -80,7 +80,10 @@ async def test_ata_hdd_sensors(hass, setup_entry, entity_id, registered):
     assert registered(f"{HDD}_pending_sectors").entity_category is None
     for key in ("offline_uncorrectable", "udma_crc_errors", "power_cycle_count"):
         assert registered(f"{HDD}_{key}").entity_category.value == "diagnostic"
-    # NVMe/SSD-only sensors are not created for a hard disk.
+    assert "state_class" not in state("temperature_operating_max").attributes
+    assert state("temperature_lifetime_max").attributes["state_class"] == "measurement"
+    # NVMe/SSD-only sensors are not created for a hard disk (data written only
+    # once the disk reports Device Statistics; the sample HDD does not).
     for key in ("wear", "available_spare", "data_written", "media_errors"):
         assert registered(f"{HDD}_{key}") is None
     # Temperatures the disk records itself: diagnostic, in °C.
@@ -126,6 +129,20 @@ async def test_nvme_sensors(hass, setup_entry, entity_id, registered):
     assert state("temperature_operating_max").state == "84"
     for key in ("temperature_lifetime_min", "temperature_lifetime_max"):
         assert registered(f"{NVME}_{key}") is None
+
+
+async def test_hdd_with_device_statistics_gets_data_written(
+    hass, setup_entry, api_response, entity_id, registered
+):
+    payload = load_status()
+    payload["disks"][0]["ata"]["bytesWritten"] = 2_000_000_000_000
+    api_response.clear_requests()
+    api_response.get(STATUS_URL, json=payload)
+    await setup_entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    written = hass.states.get(entity_id(f"{HDD}_data_written"))
+    assert float(written.state) == pytest.approx(2.0)
+    assert registered(f"{HDD}_wear") is None
 
 
 async def test_data_written_falls_back_to_data_units(

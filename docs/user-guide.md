@@ -69,7 +69,7 @@ The integration creates only the entities the server actually reports. Disabled-
 | Offline uncorrectable sectors, UDMA CRC errors | SATA disks, diagnostic |
 | Wear | SSD and NVMe, percentage of life used (SATA: Device Statistics endurance indicator when the disk has one) |
 | Available spare | NVMe, percent |
-| Data written | NVMe, and SATA SSDs with Device Statistics; TB |
+| Data written | NVMe, and SATA disks (SSD or HDD) that report Device Statistics; TB |
 | Media errors, Unsafe shutdowns | NVMe, diagnostic |
 
 **Host metrics** (on the host device; only from Chirp servers that report them, see below):
