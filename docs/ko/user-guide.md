@@ -137,8 +137,8 @@ target:
 triggers:
   - trigger: state
     entity_id:
-      - binary_sensor.wdc_wd40efrx_smart_problem
-      - binary_sensor.samsung_ssd_970_evo_plus_smart_problem
+      - binary_sensor.wdc_wd40efrx_c3d4_smart_problem
+      - binary_sensor.samsung_ssd_970_evo_plus_9a1b_smart_problem
     to: "on"
 actions:
   - action: notify.notify
