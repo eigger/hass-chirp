@@ -34,10 +34,14 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS: list[Platform] = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR]
 
 # Entities earlier releases created that are gone now: (platform, unique ID suffix).
-# "Any disk problem" on the host duplicated every disk's own SMART problem sensor;
+# "Any disk problem" on the host duplicated every disk's own SMART problem sensor,
+# and the host's SMART refresh button moved to each disk device;
 # each disk's "Last successful SMART read" timestamp (logged every SMART cycle) is
 # now the `last_read_at` attribute of its "SMART collection problem" sensor.
-_RETIRED_HOST_ENTITIES = ((Platform.BINARY_SENSOR, "any_disk_problem"),)
+_RETIRED_HOST_ENTITIES = (
+    (Platform.BINARY_SENSOR, "any_disk_problem"),
+    (Platform.BUTTON, "refresh_smart"),
+)
 _RETIRED_DISK_ENTITIES = ((Platform.SENSOR, "last_read_at"),)
 
 

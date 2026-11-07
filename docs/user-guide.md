@@ -52,7 +52,6 @@ The integration creates only the entities the server actually reports. Disabled-
 | `<core>` temperature | One per CPU core, disabled by default. Identified by the core label (`Core 0` → `..._cpu_core_temperature_core_0`), so a server that lists cores in another order keeps each value on its entity; a repeated label gets `_2`, `_3`, … and a core without a label uses its position (`index_<n>`) |
 | Boot time | Diagnostic; collection time minus uptime |
 | Consecutive fetch errors | Diagnostic; stays available while Chirp is down; attributes `last_error`, `last_error_at`, `last_success_at` |
-| Refresh SMART data | Button; asks Chirp to re-read SMART now, then follows the read with a few polls |
 
 **Disk devices** (one per disk, named `model (last four serial characters)`, attached to the host):
 
@@ -61,6 +60,7 @@ The integration creates only the entities the server actually reports. Disabled-
 | Temperature | Keeps the last value while the disk is in standby; attribute `standby` |
 | Lifetime minimum/maximum temperature, Minimum/maximum temperature since power-on, Maximum operating temperature | °C, diagnostic; only when the disk records them (SATA SCT Status / Device Statistics; NVMe reports only the maximum operating temperature, its warning threshold). Needs Chirp 0.3.2 or newer |
 | Power-on hours | Total increasing |
+| Refresh SMART data | Button; asks Chirp to re-read SMART now, then follows the read with a few polls. Chirp reads every disk in one pass, so any disk's button refreshes all disks (sleeping disks are still not woken) |
 | Power cycle count | Diagnostic |
 | Health | `ok`, `warning` or `failing`; Home Assistant's *unknown* when Chirp reports no verdict; attribute `reasons` |
 | Health reason | Actual reasons as state (e.g. `High temperature (70 °C)`); full raw details in `reasons` |
@@ -126,7 +126,7 @@ The `reasons` attribute lists objects with a `code` and an optional `value`. Cod
 ```yaml
 action: button.press
 target:
-  entity_id: button.pve_refresh_smart_data
+  entity_id: button.wdc_wd40efrx_c3d4_refresh_smart_data
 ```
 
 Select the actual entity created by your installation. Chirp queues the read (HTTP 202) and runs it in the background, so the integration polls the status every 5 seconds, at most 6 times, and stops as soon as the disks' read times have changed and settled. Pressing again restarts that follow-up instead of adding another one. Chirp rate-limits refreshes (HTTP 429); the integration treats that as success and refreshes its data once.

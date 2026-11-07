@@ -1,20 +1,30 @@
-"""Button that asks Chirp to re-read SMART data now."""
+"""Per-disk button that asks Chirp to re-read SMART data now."""
 
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import ChirpConfigEntry
 from .api import ChirpAuthError, ChirpError
 from .const import DOMAIN
-from .coordinator import ChirpCoordinator
-from .entity import ChirpEntity
+from .entity import (
+    ChirpDiskEntity,
+    disk_unique_id,
+    is_provisional_disk,
+    register_forget_device,
+)
 from .groups import selected_entities
 
 PARALLEL_UPDATES = 1
+
+REFRESH_DESCRIPTION = ButtonEntityDescription(
+    key="refresh_smart",
+    translation_key="refresh_smart",
+    icon="mdi:database-refresh",
+)
 
 
 async def async_setup_entry(
@@ -22,27 +32,38 @@ async def async_setup_entry(
     entry: ChirpConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Create the refresh button."""
-    async_add_entities(
-        selected_entities(
-            entry, [ChirpRefreshButton(entry.runtime_data.coordinator, entry)]
-        )
-    )
+    """Create a refresh button on every disk, now and for disks that appear later."""
+    coordinator = entry.runtime_data.coordinator
+    known: set[str] = set()
+
+    @callback
+    def _add_new_entities() -> None:
+        instance_id = coordinator.instance_id
+        new: list[ButtonEntity] = []
+        for disk in coordinator.data["disks"]:
+            if is_provisional_disk(disk):
+                continue
+            unique_id = disk_unique_id(instance_id, disk["id"], REFRESH_DESCRIPTION.key)
+            if unique_id not in known:
+                known.add(unique_id)
+                new.append(
+                    ChirpRefreshButton(coordinator, entry, REFRESH_DESCRIPTION, disk)
+                )
+        if new:
+            async_add_entities(selected_entities(entry, new))
+
+    register_forget_device(entry, known, (REFRESH_DESCRIPTION.key,), ())
+    _add_new_entities()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new_entities))
 
 
-class ChirpRefreshButton(ChirpEntity, ButtonEntity):
-    """Queue a SMART re-read on the server, then follow it with polls."""
+class ChirpRefreshButton(ChirpDiskEntity, ButtonEntity):
+    """Queue a SMART re-read on the server, then follow it with polls.
 
-    def __init__(self, coordinator: ChirpCoordinator, entry: ChirpConfigEntry) -> None:
-        super().__init__(
-            coordinator,
-            entry,
-            ButtonEntityDescription(
-                key="refresh_smart",
-                translation_key="refresh_smart",
-                icon="mdi:database-refresh",
-            ),
-        )
+    Chirp re-reads every disk in one pass (there is no per-disk refresh), so
+    pressing the button on any disk refreshes all of them. Disks in standby
+    are still not woken.
+    """
 
     async def async_press(self) -> None:
         """Request a SMART refresh; the server's cooldown (429) is not an error.

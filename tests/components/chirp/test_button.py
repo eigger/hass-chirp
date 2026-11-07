@@ -52,7 +52,7 @@ def _gets(aioclient_mock):
 async def test_press_posts_refresh_and_follows_until_read_settles(
     hass, setup_entry, api_response, entity_id
 ):
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     stale = load_status()
@@ -79,7 +79,7 @@ async def test_follow_stops_at_the_attempt_limit(
     hass, setup_entry, api_response, entity_id
 ):
     """A read that never lands (all disks in standby) polls a bounded number."""
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     api_response.clear_requests()
@@ -94,7 +94,7 @@ async def test_follow_stops_when_the_server_goes_away(
     hass, setup_entry, api_response, entity_id, monkeypatch
 ):
     monkeypatch.setattr(coordinator_module, "UNAVAILABLE_AFTER_FAILURES", 1)
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     api_response.clear_requests()
@@ -110,7 +110,7 @@ async def test_second_press_restarts_the_follow(
 ):
     """Only one follow-up runs at a time, so presses cannot pile up polls."""
     monkeypatch.setattr(coordinator_module, "REFRESH_POLL_INTERVAL", 3600)
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     assert hass.states.get(button).attributes["icon"] == "mdi:database-refresh"
     coordinator = setup_entry.runtime_data.coordinator
     await _press(hass, button)
@@ -125,7 +125,7 @@ async def test_second_press_restarts_the_follow(
 
 
 async def test_cooldown_is_ignored(hass, setup_entry, api_response, entity_id):
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     api_response.clear_requests()
     api_response.post(
         REFRESH_URL, status=429, json={"error": "cooldown", "retryAfter": 20}
@@ -137,7 +137,7 @@ async def test_cooldown_is_ignored(hass, setup_entry, api_response, entity_id):
 
 
 async def test_connection_error_raises(hass, setup_entry, api_response, entity_id):
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     api_response.clear_requests()
     api_response.post(REFRESH_URL, status=500)
     with pytest.raises(HomeAssistantError):
@@ -147,7 +147,7 @@ async def test_connection_error_raises(hass, setup_entry, api_response, entity_i
 async def test_auth_error_raises_and_starts_reauth(
     hass, setup_entry, api_response, entity_id
 ):
-    button = entity_id(f"{INSTANCE_ID}_refresh_smart", "button")
+    button = entity_id(f"{INSTANCE_ID}_{HDD_ID}_refresh_smart", "button")
     api_response.clear_requests()
     api_response.post(REFRESH_URL, status=401)
     with pytest.raises(HomeAssistantError):
@@ -157,3 +157,27 @@ async def test_auth_error_raises_and_starts_reauth(
         flow["context"].get("source") == "reauth"
         for flow in hass.config_entries.flow.async_progress()
     )
+
+
+async def test_every_disk_has_a_refresh_button_and_the_host_has_none(
+    hass, entry, aioclient_mock, entity_id, device_for
+):
+    """The SMART refresh button lives on the disk devices, not on the host."""
+    from homeassistant.helpers import entity_registry as er
+
+    from .conftest import NVME_ID
+
+    registry = er.async_get(hass)
+    stale = registry.async_get_or_create(
+        "button", "chirp", f"{INSTANCE_ID}_refresh_smart", config_entry=entry
+    )
+    aioclient_mock.get(STATUS_URL, json=load_status())
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get(stale.entity_id) is None
+    for disk_id in (HDD_ID, NVME_ID):
+        button = registry.async_get(
+            entity_id(f"{INSTANCE_ID}_{disk_id}_refresh_smart", "button")
+        )
+        disk_device = device_for(entry, f"{INSTANCE_ID}_{disk_id}")
+        assert button.device_id == disk_device.id
