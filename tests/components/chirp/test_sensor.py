@@ -83,6 +83,18 @@ async def test_ata_hdd_sensors(hass, setup_entry, entity_id, registered):
     # NVMe/SSD-only sensors are not created for a hard disk.
     for key in ("wear", "available_spare", "data_written", "media_errors"):
         assert registered(f"{HDD}_{key}") is None
+    # Temperatures the disk records itself: diagnostic, in °C.
+    for key, value in (
+        ("temperature_lifetime_min", "18"),
+        ("temperature_lifetime_max", "52"),
+        ("temperature_power_cycle_min", "29"),
+        ("temperature_power_cycle_max", "38"),
+        ("temperature_operating_max", "60"),
+    ):
+        assert state(key).state == value, key
+        assert state(key).attributes["unit_of_measurement"] == "°C"
+        assert state(key).attributes["device_class"] == "temperature"
+        assert registered(f"{HDD}_{key}").entity_category.value == "diagnostic"
 
 
 async def test_nvme_sensors(hass, setup_entry, entity_id, registered):
@@ -109,6 +121,10 @@ async def test_nvme_sensors(hass, setup_entry, entity_id, registered):
     for key in ("media_errors", "unsafe_shutdowns"):
         assert registered(f"{NVME}_{key}").entity_category.value == "diagnostic"
     for key in ("reallocated_sectors", "pending_sectors", "udma_crc_errors"):
+        assert registered(f"{NVME}_{key}") is None
+    # NVMe reports only its warning threshold; the other stats are not created.
+    assert state("temperature_operating_max").state == "84"
+    for key in ("temperature_lifetime_min", "temperature_lifetime_max"):
         assert registered(f"{NVME}_{key}") is None
 
 
@@ -182,6 +198,16 @@ async def test_new_disk_is_added_dynamically(
     # SATA SSD: wear from ata, but no NVMe-only sensors.
     assert hass.states.get(entity_id(f"{new_id}_wear")).state == "12"
     assert registered(f"{new_id}_available_spare") is None
+    # SATA SSD with Device Statistics: data written and SCT temperatures.
+    written = hass.states.get(entity_id(f"{new_id}_data_written"))
+    assert float(written.state) == pytest.approx(1.49457662208)
+    assert (
+        hass.states.get(entity_id(f"{new_id}_temperature_lifetime_max")).state == "75"
+    )
+    assert (
+        hass.states.get(entity_id(f"{new_id}_temperature_operating_max")).state == "100"
+    )
+    assert registered(f"{new_id}_temperature_lifetime_min") is None
     assert hass.states.get(entity_id(f"{new_id}_reallocated_sectors")).state == "0"
     device = device_for(setup_entry, new_id)
     assert device.name == "Samsung SSD 870 EVO 1TB (654Z)"

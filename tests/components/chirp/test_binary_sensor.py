@@ -15,11 +15,44 @@ async def test_baseline_problem_sensors(hass, setup_entry, entity_id):
     ok = hass.states.get(entity_id(f"{NVME}_smart_problem", "binary_sensor"))
     assert ok.state == "off"
     assert ok.attributes["reasons"] == []
-    anyp = hass.states.get(
-        entity_id(f"{INSTANCE_ID}_any_disk_problem", "binary_sensor")
+
+
+async def test_host_has_no_aggregate_disk_problem_sensor(
+    hass, entry, aioclient_mock, entity_id
+):
+    """The host's old "Any disk problem" duplicated each disk's SMART problem."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    stale = registry.async_get_or_create(
+        "binary_sensor",
+        "chirp",
+        f"{INSTANCE_ID}_any_disk_problem",
+        config_entry=entry,
     )
-    assert anyp.state == "on"
-    assert anyp.attributes["device_class"] == "problem"
+    aioclient_mock.get(STATUS_URL, json=load_status())
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get(stale.entity_id) is None
+    assert hass.states.get(stale.entity_id) is None
+
+
+async def test_last_read_timestamp_sensor_is_retired(hass, entry, aioclient_mock):
+    """The per-disk timestamp sensor logged every SMART cycle; it is an attribute now."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    stale = registry.async_get_or_create(
+        "sensor", "chirp", f"{HDD}_last_read_at", config_entry=entry
+    )
+    kept = registry.async_get_or_create(
+        "sensor", "chirp", f"{HDD}_temperature", config_entry=entry
+    )
+    aioclient_mock.get(STATUS_URL, json=load_status())
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get(stale.entity_id) is None
+    assert registry.async_get(kept.entity_id) is not None
 
 
 async def test_failing_nvme(hass, entry, aioclient_mock, entity_id):
@@ -32,17 +65,13 @@ async def test_failing_nvme(hass, entry, aioclient_mock, entity_id):
     assert len(problem.attributes["reasons"]) == 3
 
 
-async def test_any_problem_clears_when_all_disks_ok(
-    hass, setup_entry, api_response, entity_id
-):
+async def test_problem_clears_when_disk_ok(hass, setup_entry, api_response, entity_id):
     payload = load_status()
     payload["disks"][0]["health"] = {"status": "ok", "reasons": []}
     api_response.clear_requests()
     api_response.get(STATUS_URL, json=payload)
     await setup_entry.runtime_data.coordinator.async_refresh()
     await hass.async_block_till_done()
-    anyp = entity_id(f"{INSTANCE_ID}_any_disk_problem", "binary_sensor")
-    assert hass.states.get(anyp).state == "off"
     assert (
         hass.states.get(entity_id(f"{HDD}_smart_problem", "binary_sensor")).state
         == "off"
@@ -66,8 +95,6 @@ async def test_unknown_health_is_not_reported_as_problem(
     health = hass.states.get(entity_id(f"{HDD}_health"))
     assert health.state == "unknown"
     assert health.attributes["reasons"] == [{"code": "not_read", "value": None}]
-    anyp = entity_id(f"{INSTANCE_ID}_any_disk_problem", "binary_sensor")
-    assert hass.states.get(anyp).state == "off"
 
 
 async def test_new_disk_gets_problem_sensor_and_missing_is_unavailable(

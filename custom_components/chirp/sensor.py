@@ -704,7 +704,33 @@ def _wear(disk: dict[str, Any]) -> float | int | None:
     return _ata(disk, "wearLevelPercentUsed")
 
 
+def _temperature_stat(disk: dict[str, Any], field: str) -> float | int | None:
+    stats = disk.get("temperatureStats")
+    return _number(stats.get(field)) if isinstance(stats, dict) else None
+
+
+def _temperature_stat_description(key: str, field: str) -> ChirpDiskSensorDescription:
+    """Temperatures the disk records itself (SCT Status / Device Statistics)."""
+    return ChirpDiskSensorDescription(
+        key=key,
+        translation_key=key,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda disk: _temperature_stat(disk, field),
+        exists_fn=lambda disk: _temperature_stat(disk, field) is not None,
+    )
+
+
+def _has_data_written(disk: dict[str, Any]) -> bool:
+    return _has_nvme(disk) or _ata(disk, "bytesWritten") is not None
+
+
 def _data_written_tb(disk: dict[str, Any]) -> float | None:
+    if not _has_nvme(disk):
+        written = _ata(disk, "bytesWritten")
+        return None if written is None else written / 1e12
     written = _nvme(disk, "bytesWritten")
     if written is None:
         units = _nvme(disk, "dataUnitsWritten")
@@ -784,13 +810,6 @@ def _count_description(
 
 DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
     ChirpDiskSensorDescription(
-        key="last_read_at",
-        translation_key="last_read_at",
-        device_class=SensorDeviceClass.TIMESTAMP,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda disk: dt_util.parse_datetime(str(disk.get("lastReadAt") or "")),
-    ),
-    ChirpDiskSensorDescription(
         key="read_error",
         translation_key="read_error",
         device_class=SensorDeviceClass.ENUM,
@@ -815,6 +834,12 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         value_fn=lambda disk: _number(disk.get("temperature")),
         attrs_fn=lambda disk: {"standby": bool(disk.get("standby"))},
     ),
+    # Temperatures recorded by the disk (lifetime, since power-on, rated maximum)
+    _temperature_stat_description("temperature_lifetime_min", "lifetimeMin"),
+    _temperature_stat_description("temperature_lifetime_max", "lifetimeMax"),
+    _temperature_stat_description("temperature_power_cycle_min", "powerCycleMin"),
+    _temperature_stat_description("temperature_power_cycle_max", "powerCycleMax"),
+    _temperature_stat_description("temperature_operating_max", "operatingMax"),
     # Power-on hours
     ChirpDiskSensorDescription(
         key="power_on_hours",
@@ -915,7 +940,7 @@ DISK_SENSORS: tuple[ChirpDiskSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         suggested_display_precision=2,
         value_fn=_data_written_tb,
-        exists_fn=_has_nvme,
+        exists_fn=_has_data_written,
     ),
     # Media and integrity errors count
     _count_description(

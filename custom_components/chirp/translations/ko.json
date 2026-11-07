@@ -117,6 +117,21 @@
           }
         }
       },
+      "temperature_lifetime_min": {
+        "name": "수명 중 최저 온도"
+      },
+      "temperature_lifetime_max": {
+        "name": "수명 중 최고 온도"
+      },
+      "temperature_power_cycle_min": {
+        "name": "전원 켜진 후 최저 온도"
+      },
+      "temperature_power_cycle_max": {
+        "name": "전원 켜진 후 최고 온도"
+      },
+      "temperature_operating_max": {
+        "name": "최대 동작 온도"
+      },
       "power_on_hours": {
         "name": "전원 켜짐 시간"
       },
@@ -511,9 +526,6 @@
       "hardware_temperature": {
         "name": "{label} 온도"
       },
-      "last_read_at": {
-        "name": "마지막 SMART 정상 수집"
-      },
       "read_error": {
         "name": "SMART 읽기 오류",
         "state": {
@@ -552,9 +564,6 @@
       }
     },
     "binary_sensor": {
-      "any_disk_problem": {
-        "name": "디스크 문제 있음"
-      },
       "smart_problem": {
         "name": "SMART 문제",
         "state_attributes": {
@@ -592,7 +601,12 @@
         }
       },
       "read_problem": {
-        "name": "SMART 수집 문제"
+        "name": "SMART 수집 문제",
+        "state_attributes": {
+          "last_read_at": {
+            "name": "마지막 SMART 정상 수집"
+          }
+        }
       },
       "standby": {
         "name": "대기 모드"
