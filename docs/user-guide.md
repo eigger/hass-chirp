@@ -58,7 +58,7 @@ The integration creates only the entities the server actually reports. Disabled-
 | Entity | Notes |
 |---|---|
 | Temperature | Keeps the last value while the disk is in standby; attribute `standby` |
-| Lifetime minimum/maximum temperature, Minimum/maximum temperature since power-on, Maximum operating temperature | °C, diagnostic; only when the disk records them (SATA SCT Status / Device Statistics; NVMe reports only the maximum operating temperature, its warning threshold). Needs Chirp 0.3.2 or newer |
+| Lifetime minimum/maximum temperature, Minimum/maximum temperature since power-on, Maximum operating temperature | °C, diagnostic; only when the disk records them (SATA SCT Status / Device Statistics; NVMe reports only the maximum operating temperature, its warning threshold). The since-power-on pair is disabled by default because many drives only mirror the current temperature there. Needs Chirp 0.3.2 or newer |
 | Power-on hours | Total increasing |
 | Refresh SMART data | Button; asks Chirp to re-read SMART now, then follows the read with a few polls. Chirp reads every disk in one pass, so any disk's button refreshes all disks (sleeping disks are still not woken) |
 | Power cycle count | Diagnostic |

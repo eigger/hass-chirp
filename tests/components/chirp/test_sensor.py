@@ -90,14 +90,18 @@ async def test_ata_hdd_sensors(hass, setup_entry, entity_id, registered):
     for key, value in (
         ("temperature_lifetime_min", "18"),
         ("temperature_lifetime_max", "52"),
-        ("temperature_power_cycle_min", "29"),
-        ("temperature_power_cycle_max", "38"),
         ("temperature_operating_max", "60"),
     ):
         assert state(key).state == value, key
         assert state(key).attributes["unit_of_measurement"] == "°C"
         assert state(key).attributes["device_class"] == "temperature"
         assert registered(f"{HDD}_{key}").entity_category.value == "diagnostic"
+    # Since-power-on min/max: registered but disabled by default (many drives
+    # only mirror the current temperature there).
+    for key in ("temperature_power_cycle_min", "temperature_power_cycle_max"):
+        reg = registered(f"{HDD}_{key}")
+        assert reg.disabled_by is er.RegistryEntryDisabler.INTEGRATION, key
+        assert reg.entity_category.value == "diagnostic"
 
 
 async def test_nvme_sensors(hass, setup_entry, entity_id, registered):
