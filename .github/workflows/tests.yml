@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   current:
-    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.1.5 # reviewed standards commit
+    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.2.0 # reviewed standards commit
     with:
       domain: chirp
       python-versions: '["3.14"]'
@@ -21,7 +21,7 @@ jobs:
       ha-components: 'binary_sensor button sensor'
       pytest-args: tests/components/chirp/ -v
   minimum-ha:
-    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.1.5 # reviewed standards commit
+    uses: eigger/hass-repo-standards/.github/workflows/python-tests.yml@v1.2.0 # reviewed standards commit
     with:
       domain: chirp
       python-versions: '["3.13"]'
