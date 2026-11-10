@@ -9,9 +9,9 @@
 - 적용 점검표: [ADOPTION_CHECKLIST.md](ADOPTION_CHECKLIST.md)
 - 중앙 현황표: https://github.com/eigger/hass-repo-standards/blob/main/docs/adoption-status.md
 - 테스트 경로: `tests/components/chirp/`
-- 현재 테스트 환경: Python 3.14.2 이상 / HA 2026.10.2 / pytest-homeassistant-custom-component 0.13.373 (`requirements_test.txt`)
-- 컴포넌트 지원 최소 환경: Python 3.13 / HA 2025.3.0 / pytest-homeassistant-custom-component 0.13.221 (`requirements_test_min.txt`)
-- 최신 테스트 버전 갱신과 컴포넌트 지원 하한 변경을 구분하며 지원 하한은 2025.3.0입니다.
+- 현재 테스트 환경: Python 3.14.2 이상 / HA 2026.10.4 / pytest-homeassistant-custom-component 0.13.375 (`requirements_test.txt`)
+- 컴포넌트 지원 최소 환경: Python 3.14.2 이상 / HA 2026.10.0 / pytest-homeassistant-custom-component 0.13.371 (`requirements_test_min.txt`)
+- 최신 테스트 버전 갱신과 컴포넌트 지원 하한 변경을 구분하며 지원 하한은 2026.10.0입니다.
 - 최소 외부 라이브러리: 해당 없음 (`manifest.requirements=[]`)
 
 ## 신규 통합 작성 기록 (2026-11-03)
@@ -30,7 +30,7 @@ hass-chirp는 Chirp 서버(eigger/chirp)의 디스크 SMART·CPU 온도 모니�
 
 `test_supported_environment.py`는 최소 테스트 HA가 `hacs.json`의 지원 하한과 일치하고 현재 테스트 HA가 그 하한 이상인지 확인합니다. 최신 환경만 갱신해도 컴포넌트 지원 최소를 올리지 않습니다.
 
-최소 환경은 당시 HA 자체가 고정한 yanked `aiohttp==3.11.13`을 정확히 재현하며 최소 검증 파일에만 명시합니다. 최소 플러그인의 Bluetooth helper import용 간접 패키지는 [당시 공식 Bluetooth manifest](https://github.com/home-assistant/core/blob/2025.3.0/homeassistant/components/bluetooth/manifest.json)의 여섯 버전을 `constraints/homeassistant-min.txt`에 고정합니다. 이 통합의 런타임 Bluetooth 의존성은 아닙니다. Dependabot의 `exclude-paths`로 이 역사적 최소 requirements와 constraints를 자동 갱신에서 제외합니다.
+최소 환경을 HA 2026.10.0 / aiohttp 3.14.4로 올려 알려진 보안 경고를 해결합니다. HA와 호환 플러그인을 함께 고정하며, 과거 HA 2025.3.0용 aiohttp pin과 Bluetooth constraints는 제거했습니다. Dependabot은 최소·최신 requirements를 모두 검사하며, 최소 환경 변경 시 HACS 하한·CI 기대 버전·문서를 함께 갱신해야 합니다. 보안 업데이트 자동 PR 기능은 저장소 설정에서 2026-11-10 활성화했습니다.
 
 실제 Chirp 서버·기기 SMART 데이터와의 실물 검증은 수행하지 않았습니다. HACS·Hassfest 및 GitHub Actions 결과는 저장소 게시 후 체크리스트에서 별도로 확인합니다.
 

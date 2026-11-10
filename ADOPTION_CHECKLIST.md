@@ -52,3 +52,7 @@ hass-chirp 신규 통합 작성 시점(2026-11-03)의 실제 확인 기록입니
 | 실제 Chirp 서버·실물 디스크 | 미검증 | HTTP 경계를 모의한 실제 HA 테스트만 수행 |
 | HA frontend 표시, 로컬 brand UI | 미검증 | PNG 파일 생성·시각 확인만 수행; 로컬 brand 표시는 HA 2026.3+ |
 | 원격 Tests/Validate, 첫 Release ZIP | 미검증 | 저장소 게시 후 확인 |
+
+## Security dependency refresh (2026-11-10)
+
+최소 지원 환경을 HA 2026.10.0 / Python 3.14.2+ / 플러그인 0.13.371로 변경했습니다. 위 채택 시점의 HA 2025.3.0 검증 기록은 과거 이력입니다. 현재 테스트 환경은 플러그인 0.13.375가 고정하는 HA 2026.10.4입니다. Linux/Python 3.14.7에서 최소·현재 환경 각각 158 passed, `pip check` 성공, Ruff 검사·포맷 검사 성공을 확인했습니다. 원격 공통 workflow 결과는 이 PR의 CI에서 별도로 확인합니다.

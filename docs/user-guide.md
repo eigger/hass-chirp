@@ -4,7 +4,7 @@
 
 ## Requirements
 
-- Home Assistant **2025.3.0 or newer**, a reachable [Chirp](https://github.com/eigger/chirp) server and its API key.
+- Home Assistant **2026.10.0 or newer**, a reachable [Chirp](https://github.com/eigger/chirp) server and its API key.
 - Local HTTP/HTTPS polling; no Bluetooth adapter or proxy is used.
 - The integration domain is `chirp` (display name **Chirp**).
 
@@ -30,7 +30,7 @@ Chirp listens on port **80** by default (`CHIRP_PORT`). Its dashboard is at `htt
 
 ### 3. Install and add the integration
 
-1. On Home Assistant 2025.3.0 or newer, add `eigger/hass-chirp` as a custom **Integration** repository in HACS.
+1. On Home Assistant 2026.10.0 or newer, add `eigger/hass-chirp` as a custom **Integration** repository in HACS.
 2. Install **Chirp** and restart Home Assistant.
 3. Go to **Settings → Devices & services → Add integration → Chirp**.
 4. Enter the **host** (IP address or host name, without `http://` or a path), the **port** (default `80`) and the **API key**. Enable **Use HTTPS** only if Chirp is served over HTTPS, for example behind a reverse proxy. **Verify SSL certificate** is on by default; turn it off only when that proxy uses a self-signed certificate and you trust the server.

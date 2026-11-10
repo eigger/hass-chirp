@@ -8,7 +8,7 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스�
 <!-- hass-standards:badges:start -->
 [![Release](https://img.shields.io/github/v/release/eigger/hass-chirp?style=flat)](https://github.com/eigger/hass-chirp/releases)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat)](#설치)
-[![Home Assistant minimum](https://img.shields.io/badge/HA-%E2%89%A5%202025.3.0-41BDF5?style=flat)](hacs.json)
+[![Home Assistant minimum](https://img.shields.io/badge/HA-%E2%89%A5%202026.10.0-41BDF5?style=flat)](hacs.json)
 [![Tests](https://img.shields.io/github/actions/workflow/status/eigger/hass-chirp/tests.yml?branch=master&style=flat&label=Tests)](https://github.com/eigger/hass-chirp/actions/workflows/tests.yml)
 [![Validate](https://img.shields.io/github/actions/workflow/status/eigger/hass-chirp/validate.yml?branch=master&style=flat&label=Validate)](https://github.com/eigger/hass-chirp/actions/workflows/validate.yml)
 [![License](https://img.shields.io/github/license/eigger/hass-chirp?style=flat)](LICENSE)
@@ -34,7 +34,7 @@ Chirp 서버의 디스크 SMART 건강 상태·디스크와 CPU 온도, 호스�
 
 ## 요구사항
 
-- **Home Assistant:** 2025.3.0 이상.
+- **Home Assistant:** 2026.10.0 이상.
 - **서버:** 로컬 HTTP 또는 HTTPS로 접속할 수 있는 [Chirp](https://github.com/eigger/chirp) 서버.
 - **API 키:** Chirp API 키.
 
