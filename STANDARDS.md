@@ -30,7 +30,7 @@ hass-chirp는 Chirp 서버(eigger/chirp)의 디스크 SMART·CPU 온도 모니�
 
 `test_supported_environment.py`는 최소 테스트 HA가 `hacs.json`의 지원 하한과 일치하고 현재 테스트 HA가 그 하한 이상인지 확인합니다. 최신 환경만 갱신해도 컴포넌트 지원 최소를 올리지 않습니다.
 
-최소 환경을 HA 2026.10.0 / aiohttp 3.14.4로 올려 알려진 보안 경고를 해결합니다. HA와 호환 플러그인을 함께 고정하며, 과거 HA 2025.3.0용 aiohttp pin과 Bluetooth constraints는 제거했습니다. Dependabot은 최소·최신 requirements를 모두 검사하며, 최소 환경 변경 시 HACS 하한·CI 기대 버전·문서를 함께 갱신해야 합니다. 보안 업데이트 자동 PR 기능은 저장소 설정에서 2026-11-10 활성화했습니다.
+최소 환경을 HA 2026.10.0 / aiohttp 3.14.4로 올려 알려진 보안 경고를 해결합니다. HA와 호환 플러그인을 함께 고정하며, 과거 HA 2025.3.0용 aiohttp pin과 Bluetooth constraints는 제거했습니다. Dependabot은 최신 테스트 requirements를 자동 갱신하며, 지원 하한을 정의하는 최소 requirements는 자동 갱신에서 제외합니다. 최소 환경의 보안 경고는 검토하며, 지원 하한을 변경할 때 HA·플러그인 조합과 HACS 하한·CI 기대 버전·문서를 함께 갱신해야 합니다. 보안 업데이트 자동 PR 기능은 저장소 설정에서 2026-11-10 활성화했습니다.
 
 실제 Chirp 서버·기기 SMART 데이터와의 실물 검증은 수행하지 않았습니다. HACS·Hassfest 및 GitHub Actions 결과는 저장소 게시 후 체크리스트에서 별도로 확인합니다.
 

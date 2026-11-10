@@ -13,7 +13,7 @@ python3.14 -m venv .venv
 .venv/bin/python -m pytest tests/components/chirp/ -v
 ```
 
-최소 HA 검증은 별도 가상환경에서 `requirements_test_min.txt`를 설치해 같은 pytest 명령을 실행합니다. 테스트는 현재·최소 환경별 정확한 HA/플러그인 설치값을 확인하고 최소 환경이 `hacs.json`의 지원 하한과 일치하는지 검사합니다. Dependabot은 두 requirements 파일을 모두 검사하며 pip 보안 업데이트를 별도 그룹으로 묶습니다. 최소 HA를 변경하는 PR은 `hacs.json`, CI의 기대 버전과 지원 문서를 함께 갱신해야 하며 환경 테스트가 불일치를 감지합니다. 최신 테스트 환경만 갱신하면 지원 하한은 바뀌지 않습니다. 테스트 의존성은 런타임 manifest와 분리하며 호환 HA·플러그인 버전을 함께 검토합니다. 자세한 환경·검증 범위는 [적용 기준](../../STANDARDS.md)과 [체크리스트](../../ADOPTION_CHECKLIST.md)를 참고하세요.
+최소 HA 검증은 별도 가상환경에서 `requirements_test_min.txt`를 설치해 같은 pytest 명령을 실행합니다. 테스트는 현재·최소 환경별 정확한 HA/플러그인 설치값을 확인하고 최소 환경이 `hacs.json`의 지원 하한과 일치하는지 검사합니다. Dependabot은 최신 테스트 환경을 자동 갱신하고 pip 보안 업데이트를 별도 그룹으로 묶습니다. `requirements_test_min.txt`의 정확한 HA·플러그인 조합은 지원 하한이므로 자동 갱신에서 제외합니다. 최소 환경은 `hacs.json`, CI 기대 버전과 지원 문서를 함께 바꾸는 명시적인 지원 하한 변경 PR에서만 갱신하며 환경 테스트가 불일치를 감지합니다. 최소 환경에 보안 경고가 생기면 지원 하한 상향 필요성을 검토합니다. 최신 테스트 환경만 갱신하면 지원 하한은 바뀌지 않습니다. 테스트 의존성은 런타임 manifest와 분리하며 호환 HA·플러그인 버전을 함께 검토합니다. 자세한 환경·검증 범위는 [적용 기준](../../STANDARDS.md)과 [체크리스트](../../ADOPTION_CHECKLIST.md)를 참고하세요.
 
 ## 도메인과 API 계약
 
