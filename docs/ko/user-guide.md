@@ -4,7 +4,7 @@
 
 ## 요구사항
 
-- Home Assistant **2025.3.0 이상**, 접근 가능한 [Chirp](https://github.com/eigger/chirp) 서버와 API 키.
+- Home Assistant **2026.10.0 이상**, 접근 가능한 [Chirp](https://github.com/eigger/chirp) 서버와 API 키.
 - 로컬 HTTP/HTTPS 폴링만 사용하며 Bluetooth 어댑터나 프록시는 쓰지 않습니다.
 - 통합 도메인은 `chirp`(표시 이름 **Chirp**)입니다.
 
@@ -30,7 +30,7 @@ Chirp는 기본적으로 **80** 포트(`CHIRP_PORT`)에서 동작하며 대시�
 
 ### 3. 통합 설치와 추가
 
-1. Home Assistant 2025.3.0 이상의 HACS에서 `eigger/hass-chirp`를 사용자 지정 **Integration** 저장소로 추가합니다.
+1. Home Assistant 2026.10.0 이상의 HACS에서 `eigger/hass-chirp`를 사용자 지정 **Integration** 저장소로 추가합니다.
 2. **Chirp** 를 설치하고 Home Assistant를 재시작합니다.
 3. **설정 → 기기 및 서비스 → 통합 추가 → Chirp** 로 이동합니다.
 4. **주소**(IP 또는 호스트 이름, `http://`나 경로 없이), **포트**(기본 `80`), **API 키**를 입력합니다. 리버스 프록시 등으로 Chirp를 HTTPS로 제공할 때만 **HTTPS 사용**을 켭니다. **SSL 인증서 확인**은 기본으로 켜져 있으며, 그 프록시가 자체 서명 인증서를 쓰고 서버를 신뢰할 때만 끄세요.

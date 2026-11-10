@@ -8,7 +8,7 @@ A read-only Home Assistant custom integration that shows Chirp disk SMART health
 <!-- hass-standards:badges:start -->
 [![Release](https://img.shields.io/github/v/release/eigger/hass-chirp?style=flat)](https://github.com/eigger/hass-chirp/releases)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5?style=flat)](#installation)
-[![Home Assistant minimum](https://img.shields.io/badge/HA-%E2%89%A5%202025.3.0-41BDF5?style=flat)](hacs.json)
+[![Home Assistant minimum](https://img.shields.io/badge/HA-%E2%89%A5%202026.10.0-41BDF5?style=flat)](hacs.json)
 [![Tests](https://img.shields.io/github/actions/workflow/status/eigger/hass-chirp/tests.yml?branch=master&style=flat&label=Tests)](https://github.com/eigger/hass-chirp/actions/workflows/tests.yml)
 [![Validate](https://img.shields.io/github/actions/workflow/status/eigger/hass-chirp/validate.yml?branch=master&style=flat&label=Validate)](https://github.com/eigger/hass-chirp/actions/workflows/validate.yml)
 [![License](https://img.shields.io/github/license/eigger/hass-chirp?style=flat)](LICENSE)
@@ -34,7 +34,7 @@ Sensor groups (CPU, RAM, SMART, Network, Hardware, Storage) can be selected duri
 
 ## Requirements
 
-- **Home Assistant:** 2025.3.0 or later.
+- **Home Assistant:** 2026.10.0 or later.
 - **Server:** A reachable [Chirp](https://github.com/eigger/chirp) server over local HTTP or HTTPS.
 - **API key:** A Chirp API key.
 

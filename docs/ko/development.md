@@ -2,7 +2,7 @@
 
 [English](../development.md) | [한국어](development.md) | [README](../../README.ko.md)
 
-최신 테스트 환경은 HA 2026.10.2·플러그인 0.13.373·Python 3.14.2 이상입니다. 지원 최소 버전은 HA 2025.3.0으로 유지하며, 별도 Python 3.13 환경에서 그 버전에 호환되는 플러그인 0.13.221로 검증합니다.
+최신 테스트 환경은 HA 2026.10.4·플러그인 0.13.375이며, 최소 지원 환경은 HA 2026.10.0·플러그인 0.13.371입니다. 두 환경 모두 Python 3.14.2 이상을 사용합니다. 기존 HA 2025.3.0 테스트 환경에 고정된 Home Assistant와 aiohttp의 알려진 취약점을 제거하기 위해 지원 하한을 올렸습니다.
 
 ```sh
 python3.14 -m venv .venv
@@ -13,7 +13,7 @@ python3.14 -m venv .venv
 .venv/bin/python -m pytest tests/components/chirp/ -v
 ```
 
-최소 HA 검증은 별도 가상환경에서 `requirements_test_min.txt`를 설치해 같은 pytest 명령을 실행합니다. 테스트는 현재·최소 환경별 정확한 HA/플러그인 설치값을 확인하고 최소 환경이 `hacs.json`의 지원 하한과 일치하는지 검사합니다. 최신 테스트 환경을 갱신하는 것만으로 컴포넌트 지원 하한을 올리지 않습니다. 테스트 의존성은 런타임 manifest와 분리하며 호환 HA·플러그인 버전을 함께 검토합니다. 자세한 환경·검증 범위는 [적용 기준](../../STANDARDS.md)과 [체크리스트](../../ADOPTION_CHECKLIST.md)를 참고하세요.
+최소 HA 검증은 별도 가상환경에서 `requirements_test_min.txt`를 설치해 같은 pytest 명령을 실행합니다. 테스트는 현재·최소 환경별 정확한 HA/플러그인 설치값을 확인하고 최소 환경이 `hacs.json`의 지원 하한과 일치하는지 검사합니다. Dependabot은 두 requirements 파일을 모두 검사하며 pip 보안 업데이트를 별도 그룹으로 묶습니다. 최소 HA를 변경하는 PR은 `hacs.json`, CI의 기대 버전과 지원 문서를 함께 갱신해야 하며 환경 테스트가 불일치를 감지합니다. 최신 테스트 환경만 갱신하면 지원 하한은 바뀌지 않습니다. 테스트 의존성은 런타임 manifest와 분리하며 호환 HA·플러그인 버전을 함께 검토합니다. 자세한 환경·검증 범위는 [적용 기준](../../STANDARDS.md)과 [체크리스트](../../ADOPTION_CHECKLIST.md)를 참고하세요.
 
 ## 도메인과 API 계약
 

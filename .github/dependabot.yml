@@ -15,9 +15,6 @@ updates:
       - eigger/hass-repo-standards/*
 - package-ecosystem: pip
   directory: /
-  exclude-paths:
-  - requirements_test_min.txt
-  - constraints/**
   schedule:
     interval: weekly
   groups:
@@ -25,5 +22,10 @@ updates:
       patterns:
       - homeassistant
       - pytest-homeassistant-custom-component
+      - aiohttp
+    security:
+      applies-to: security-updates
+      patterns:
+      - "*"
 
 # Manual update check requested: 2026-11-10T01:09:55+00:00
