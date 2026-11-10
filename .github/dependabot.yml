@@ -25,3 +25,5 @@ updates:
       patterns:
       - homeassistant
       - pytest-homeassistant-custom-component
+
+# Manual update check requested: 2026-11-10T01:09:55+00:00
