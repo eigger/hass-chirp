@@ -15,6 +15,10 @@ updates:
       - eigger/hass-repo-standards/*
 - package-ecosystem: pip
   directory: /
+  # The support floor must match hacs.json and the minimum CI expected version.
+  # Update this exact HA/plugin pair only in an explicit support-floor PR.
+  exclude-paths:
+  - requirements_test_min.txt
   schedule:
     interval: weekly
   groups:
