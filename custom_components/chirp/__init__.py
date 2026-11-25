@@ -26,7 +26,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import ChirpCoordinator, scan_interval_from_options
-from .entity import INTERFACE_DEVICE_INFIX, host_device_info
+from .entity import INTERFACE_DEVICE_INFIX, host_device_fields
 from .groups import group_options, sync_group_registry
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChirpConfigEntry) -> boo
 
     # Disk devices reference the host through via_device, so create it first.
     dr.async_get(hass).async_get_or_create(
-        config_entry_id=entry.entry_id, **host_device_info(entry, coordinator.data)
+        config_entry_id=entry.entry_id, **host_device_fields(entry, coordinator.data)
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
