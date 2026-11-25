@@ -25,17 +25,27 @@ def dashboard_url(entry: ConfigEntry) -> str:
     return build_base_url(host, int(entry.data[CONF_PORT]), bool(entry.data[CONF_SSL]))
 
 
+def host_device_fields(entry: ConfigEntry, status: dict[str, Any]) -> dict[str, Any]:
+    """Return the keyword arguments describing the monitored host device.
+
+    They feed both ``DeviceInfo`` and ``async_get_or_create``. DeviceInfo is a
+    TypedDict before Home Assistant 2026.11 and a dataclass after it, and only
+    keyword construction (never item access or ``**`` unpacking) works on both.
+    """
+    instance = status["instance"]
+    return {
+        "identifiers": {(DOMAIN, str(instance["id"]))},
+        "name": str(instance.get("hostname") or "Chirp"),
+        "manufacturer": MANUFACTURER,
+        "model": (status.get("cpu") or {}).get("model"),
+        "sw_version": instance.get("version"),
+        "configuration_url": dashboard_url(entry),
+    }
+
+
 def host_device_info(entry: ConfigEntry, status: dict[str, Any]) -> DeviceInfo:
     """Build the DeviceInfo of the monitored host."""
-    instance = status["instance"]
-    return DeviceInfo(
-        identifiers={(DOMAIN, str(instance["id"]))},
-        name=str(instance.get("hostname") or "Chirp"),
-        manufacturer=MANUFACTURER,
-        model=(status.get("cpu") or {}).get("model"),
-        sw_version=instance.get("version"),
-        configuration_url=dashboard_url(entry),
-    )
+    return DeviceInfo(**host_device_fields(entry, status))
 
 
 def is_provisional_disk(disk: dict[str, Any]) -> bool:
@@ -70,14 +80,14 @@ def disk_device_info(
     disk: dict[str, Any],
 ) -> DeviceInfo:
     """Build the DeviceInfo of one disk, attached to the host device."""
-    info = DeviceInfo(
+    return DeviceInfo(
         identifiers={(DOMAIN, f"{instance_id}_{disk['id']}")},
         name=disk_device_name(disk),
         model=disk.get("model"),
         serial_number=disk.get("serial"),
         sw_version=disk.get("firmware"),
+        **_via_host(hass, entry, instance_id),
     )
-    return _via_host(hass, entry, instance_id, info)
 
 
 _INTERFACE_MODELS = {
@@ -129,28 +139,29 @@ def interface_device_info(
     instance_id = str(instance["id"])
     hostname = str(instance.get("hostname") or "Chirp")
     label = interface.get("name") or interface["id"]
-    info = DeviceInfo(
+    return DeviceInfo(
         identifiers={
             (DOMAIN, interface_device_identifier(instance_id, interface["id"]))
         },
         name=f"{hostname} {label}",
         model=_INTERFACE_MODELS.get(str(interface.get("kind")), "Network interface"),
+        **_via_host(hass, entry, instance_id),
     )
-    return _via_host(hass, entry, instance_id, info)
 
 
 def _via_host(
-    hass: HomeAssistant, entry: ConfigEntry, instance_id: str, info: DeviceInfo
-) -> DeviceInfo:
-    """Attach a child device (disk, network interface) to the host device."""
+    hass: HomeAssistant, entry: ConfigEntry, instance_id: str
+) -> dict[str, Any]:
+    """Return the keyword argument attaching a child device to the host device.
+
+    Empty when the host device is not registered yet (newer Home Assistant).
+    """
     if not _USES_VIA_DEVICE_ID:
-        info["via_device"] = (DOMAIN, instance_id)  # type: ignore[typeddict-unknown-key]
-        return info
+        return {"via_device": (DOMAIN, instance_id)}
     for device in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id):
         if (DOMAIN, instance_id) in device.identifiers:
-            info["via_device_id"] = device.id  # type: ignore[typeddict-unknown-key]
-            break
-    return info
+            return {"via_device_id": device.id}
+    return {}
 
 
 def register_forget_device(
